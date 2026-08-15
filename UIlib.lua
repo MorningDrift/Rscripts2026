@@ -22,7 +22,7 @@ Library.ConfigName      = nil
 Library.IsLoadingConfig = false
 
 Library.Icons = {
-    Gear     = "rbxassetid://137812568290912",
+    Gear     = "rbxassetid://86579518783109",
     Minimise = "rbxassetid://80688800908127",
     Home     = "rbxassetid://95747170083656",
     Expand   = "rbxassetid://108376906768065",

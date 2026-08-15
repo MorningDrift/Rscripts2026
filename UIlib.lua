@@ -1,4 +1,4 @@
-
+print("tttggggggdfh")
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -22,9 +22,9 @@ Library.ConfigName      = nil
 Library.IsLoadingConfig = false
 
 Library.Icons = {
-    Gear     = "rbxassetid://86579518783109",
+    Gear     = "rbxassetid://137812568290912",
     Minimise = "rbxassetid://80688800908127",
-    Home     = "rbxassetid://75535816692763",
+    Home     = "rbxassetid://95747170083656",
     Expand   = "rbxassetid://108376906768065",
     Diamond  = "rbxassetid://118376432250064",
     Cross    = "rbxassetid://110946743687809",
@@ -351,7 +351,7 @@ local function stroke(parent, thickness, colorKey)
     return s
 end
 
--- label: base helper (no scaling)
+-- label: base helper (matching hub 1.3x text scaling)
 local function label(parent, props)
     local t = Instance.new("TextLabel", parent)
     t.BackgroundTransparency = 1
@@ -361,7 +361,8 @@ local function label(parent, props)
     t.Position               = props.pos or UDim2.new(0, 0, 0, 0)
     t.Text                   = props.text or ""
     applyFont(t, props.fontType or "Bold")
-    t.TextSize               = props.ts or 13
+    local baseTs             = props.ts or 12
+    t.TextSize               = math.floor(baseTs * 1.3 + 0.5)
     t.TextXAlignment         = props.ax or Enum.TextXAlignment.Left
     t.TextYAlignment         = props.ay or Enum.TextYAlignment.Center
     t.ZIndex                 = props.z or 3
@@ -1145,7 +1146,7 @@ function Library:CreateWindow(options)
     -- Thin Tab Indicator (2px)
     local slidingIndicator = Instance.new("Frame", sidebar)
     slidingIndicator.Name             = "SlidingIndicator"
-    slidingIndicator.Size             = UDim2.new(0, 2, 0, 24)
+    slidingIndicator.Size             = UDim2.new(0, 2, 0, 20)
     slidingIndicator.Position         = UDim2.new(0, 4, 0, 38)
     slidingIndicator.BorderSizePixel = 0
     slidingIndicator.ZIndex           = 10
@@ -2349,6 +2350,67 @@ function Library:CreateWindow(options)
                     rowBtn:Destroy()
                 end
                 return ButtonObj
+            end
+
+            -- ── Section:AddScriptRow ─────────────────────────────────────
+            function SectionObj:AddScriptRow(rowOpts)
+                rowOpts = rowOpts or {}
+                local titleText = rowOpts.Title or rowOpts.Name or "Script"
+                local descText  = rowOpts.Desc or rowOpts.Description
+                local callback  = rowOpts.Callback or rowOpts.Execute or function() end
+
+                SectionObj.ElementCount = SectionObj.ElementCount + 1
+
+                local dummy = Instance.new("Frame", secCard)
+                dummy.Size                   = UDim2.new(1, 0, 0, 50)
+                dummy.BackgroundTransparency = 1
+                dummy.BorderSizePixel        = 0
+                dummy.LayoutOrder            = SectionObj.ElementCount
+                dummy.ZIndex                 = 5
+
+                local card = Instance.new("Frame", dummy)
+                card.Size                   = UDim2.new(1, 0, 1, 0)
+                card.BorderSizePixel        = 0
+                card.ZIndex                 = 5
+                registerTheme(card, "BackgroundColor3", "Panel")
+                corner(card, 6)
+                stroke(card, 1, "Border")
+
+                local dot = Instance.new("Frame", card)
+                dot.Size                   = UDim2.new(0, 4, 0, 4)
+                dot.Position               = UDim2.new(0, 14, 0.5, -2)
+                dot.BorderSizePixel        = 0
+                dot.ZIndex                 = 6
+                registerTheme(dot, "BackgroundColor3", "TextDim")
+                corner(dot, 2)
+
+                if descText and descText ~= "" then
+                    label(card, { size = UDim2.new(1, -110, 0, 22), pos = UDim2.new(0, 28, 0, 8), text = titleText, fontType = "Bold", ts = 13, theme = "Text", z = 6 })
+                    label(card, { size = UDim2.new(1, -110, 0, 18), pos = UDim2.new(0, 28, 0, 27), text = descText, fontType = "Medium", ts = 10, theme = "TextDim", z = 6 })
+                else
+                    local tLbl = label(card, { size = UDim2.new(1, -110, 1, 0), pos = UDim2.new(0, 28, 0, 0), text = titleText, fontType = "Bold", ts = 13, theme = "Text", z = 6 })
+                    tLbl.TextYAlignment = Enum.TextYAlignment.Center
+                end
+
+                local execBtn = Instance.new("TextButton", card)
+                execBtn.Size                   = UDim2.new(0, 76, 0, 28)
+                execBtn.Position               = UDim2.new(1, -84, 0.5, -14)
+                execBtn.BorderSizePixel        = 0
+                execBtn.Text                   = "Execute"
+                applyFont(execBtn, "Bold")
+                execBtn.TextSize               = 13
+                execBtn.ZIndex                 = 7
+                registerTheme(execBtn, "BackgroundColor3", "Accent")
+                registerTheme(execBtn, "TextColor3", "Text")
+                corner(execBtn, 5)
+
+                execBtn.MouseEnter:Connect(function() twQ(execBtn, 0.1, { BackgroundColor3 = Color3.fromRGB(230, 95, 10) }) end)
+                execBtn.MouseLeave:Connect(function() twQ(execBtn, 0.1, { BackgroundColor3 = Theme.Accent }) end)
+                execBtn.MouseButton1Click:Connect(function() pcall(callback) end)
+
+                local ScriptRowObj = {}
+                function ScriptRowObj:Destroy() dummy:Destroy() end
+                return ScriptRowObj
             end
 
             -- ── Static Display Elements ────────────────────────────────

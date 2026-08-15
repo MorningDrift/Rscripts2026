@@ -1,4 +1,4 @@
-
+print("hi")
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -90,7 +90,8 @@ overlayLayer.Name = "OverlayLayer"
 
 local notificationHolder = Instance.new("Frame", screenGui)
 notificationHolder.Name                   = "NotificationHolder"
-notificationHolder.Size                   = UDim2.new(0, 300, 1, -40)
+notificationHolder.Size                   = UDim2.new(0, 300, 0, 0)
+notificationHolder.AutomaticSize          = Enum.AutomaticSize.Y
 notificationHolder.Position               = UDim2.new(1, -20, 1, -20)
 notificationHolder.AnchorPoint            = Vector2.new(1, 1)
 notificationHolder.BackgroundTransparency = 1
@@ -614,7 +615,7 @@ function Library:Notify(options)
     local iconId = options.Icon
 
     local toast = Instance.new("Frame", notificationHolder)
-    toast.Size                    = UDim2.new(1, 0, 0, 0)
+    toast.Size                    = UDim2.new(1, 0, 0, 60)
     toast.AutomaticSize           = Enum.AutomaticSize.Y
     toast.BorderSizePixel         = 0
     toast.ClipsDescendants        = true
@@ -641,7 +642,7 @@ function Library:Notify(options)
     end
 
     label(toast, {
-        size = UDim2.new(1, -iconOffset - 20, 0, 20),
+        size = UDim2.new(1, -iconOffset - 28, 0, 20),
         pos = UDim2.new(0, iconOffset, 0, 0),
         text = titleText,
         fontType = "Bold",
@@ -661,8 +662,8 @@ function Library:Notify(options)
     cLbl.AutomaticSize = Enum.AutomaticSize.Y
 
     local closeBtn = Instance.new("TextButton", toast)
-    closeBtn.Size                   = UDim2.new(0, 16, 0, 16)
-    closeBtn.Position               = UDim2.new(1, -16, 0, 2)
+    closeBtn.Size                   = UDim2.new(0, 14, 0, 14)
+    closeBtn.Position               = UDim2.new(1, -20, 0, 6)
     closeBtn.BackgroundTransparency = 1
     closeBtn.Text                   = "x"
     applyFont(closeBtn, "Bold")
@@ -670,12 +671,11 @@ function Library:Notify(options)
     registerTheme(closeBtn, "TextColor3", "TextDim")
 
     local progressBar = Instance.new("Frame", toast)
-    progressBar.Size             = UDim2.new(1, 24, 0, 2)
-    progressBar.Position         = UDim2.new(0, -12, 1, -2)
+    progressBar.Size             = UDim2.new(1, 0, 0, 2)
+    progressBar.Position         = UDim2.new(0, 0, 1, -2)
     progressBar.BorderSizePixel    = 0
     registerTheme(progressBar, "BackgroundColor3", "Accent")
 
-    toast.BackgroundTransparency = 1
     twQ(toast, 0.25, { BackgroundTransparency = 0 })
 
     local isDismissed = false
@@ -1133,7 +1133,7 @@ function Library:CreateWindow(options)
     end))
 
     --  Close Confirmation Modal 
-    local CW_W, CW_H = 320, 152
+    local CW_W, CW_H = 320, 170
 
     local modalBackdrop = Instance.new("TextButton", overlayLayer)
     modalBackdrop.Name                   = "MD_ModalBackdrop"
@@ -1180,6 +1180,10 @@ function Library:CreateWindow(options)
         end)
     end
 
+    modalBackdrop.MouseButton1Click:Connect(function()
+        closeCloseWin()
+    end)
+
     local cwHead = Instance.new("Frame", closeWin)
     cwHead.Size                   = UDim2.new(1, 0, 0, 36)
     cwHead.BackgroundTransparency = 1
@@ -1196,9 +1200,9 @@ function Library:CreateWindow(options)
     })
     makeDraggable(closeWin, cwHead)
 
-    label(closeWin, {
-        size = UDim2.new(1, -28, 0, 34),
-        pos = UDim2.new(0, 14, 0, 40),
+    local cLabel = label(closeWin, {
+        size = UDim2.new(1, -28, 0, 0),
+        pos = UDim2.new(0, 14, 0, 44),
         text = "Are you sure you want to unload the script UI?",
         fontType = "Medium",
         ts = 11,
@@ -1206,10 +1210,11 @@ function Library:CreateWindow(options)
         wrap = true,
         z = 5002
     })
+    cLabel.AutomaticSize = Enum.AutomaticSize.Y
 
     local cwBtnRow = Instance.new("Frame", closeWin)
-    cwBtnRow.Size                   = UDim2.new(1, -28, 0, 32)
-    cwBtnRow.Position               = UDim2.new(0, 14, 1, -44)
+    cwBtnRow.Size                   = UDim2.new(1, -28, 0, 34)
+    cwBtnRow.Position               = UDim2.new(0, 14, 1, -46)
     cwBtnRow.BackgroundTransparency = 1
     cwBtnRow.ZIndex                 = 5002
 
@@ -1241,7 +1246,7 @@ function Library:CreateWindow(options)
     registerTheme(unloadBtn, "TextColor3", "Text")
     corner(unloadBtn, 5)
 
-    unloadBtn.MouseEnter:Connect(function() twQ(unloadBtn, 0.1, { BackgroundColor3 = Color3.fromRGB(230, 95, 10) }) end)
+    unloadBtn.MouseEnter:Connect(function() twQ(unloadBtn, 0.1, { BackgroundColor3 = Theme.AccentHover or Color3.fromRGB(230, 95, 10) }) end)
     unloadBtn.MouseLeave:Connect(function() twQ(unloadBtn, 0.1, { BackgroundColor3 = Theme.Accent }) end)
     unloadBtn.MouseButton1Click:Connect(function()
         closeCloseWin()
@@ -1529,10 +1534,10 @@ function Library:CreateWindow(options)
         end
 
         -- AddSection
-        function TabObj:AddSection(sectionName)
-            TabObj.SectionCount = TabObj.SectionCount + 1
+        function TabObj:AddSection(sectionName, targetParent)
+            self.SectionCount = (self.SectionCount or 0) + 1
 
-            local secCard = Instance.new("Frame", page)
+            local secCard = Instance.new("Frame", targetParent or self.Page)
             secCard.Size                  = UDim2.new(1, 0, 0, 0)
             secCard.AutomaticSize         = Enum.AutomaticSize.Y
             secCard.BorderSizePixel        = 0
@@ -2267,7 +2272,7 @@ function Library:CreateWindow(options)
                         return false
                     end
                     if mode == "Always" then
-                        return true
+                        return typeof(currKey) == "EnumItem" and UserInputService:IsKeyDown(currKey)
                     elseif mode == "Hold" then
                         if typeof(currKey) == "EnumItem" then
                             return UserInputService:IsKeyDown(currKey)
@@ -2965,7 +2970,7 @@ function Library:CreateWindow(options)
             return SectionObj
         end
 
-        function TabObj:AddCollapsibleSection(opts)
+        function TabObj:AddCollapsibleSection(opts, targetPage)
             if typeof(opts) == "string" then
                 opts = { Name = opts }
             end
@@ -2976,7 +2981,7 @@ function Library:CreateWindow(options)
 
             TabObj.SectionCount = TabObj.SectionCount + 1
 
-            local secCard = Instance.new("Frame", page)
+            local secCard = Instance.new("Frame", targetPage or page)
             secCard.Size                  = UDim2.new(1, 0, 0, 0)
             secCard.AutomaticSize         = defaultOpen and Enum.AutomaticSize.Y or Enum.AutomaticSize.None
             secCard.BorderSizePixel        = 0
@@ -3037,8 +3042,7 @@ function Library:CreateWindow(options)
                 end
             end)
 
-            local tempTabObj = { Page = contentContainer, SectionCount = 0 }
-            local secObj = TabObj.AddSection(tempTabObj, "")
+            local secObj = TabObj:AddSection("", contentContainer)
             secObj.Card  = secCard
             return secObj
         end
@@ -3079,12 +3083,12 @@ function Library:CreateWindow(options)
             rLayout.Padding   = UDim.new(0, 10)
 
             local LeftTabObj = { Page = leftCol, SectionCount = 0 }
-            LeftTabObj.AddSection = function(self, secName) return TabObj.AddSection(LeftTabObj, secName) end
-            LeftTabObj.AddCollapsibleSection = function(self, opts) return TabObj.AddCollapsibleSection(LeftTabObj, opts) end
+            LeftTabObj.AddSection = function(self, secName) return TabObj:AddSection(secName, leftCol) end
+            LeftTabObj.AddCollapsibleSection = function(self, opts) return TabObj:AddCollapsibleSection(opts, leftCol) end
 
             local RightTabObj = { Page = rightCol, SectionCount = 0 }
-            RightTabObj.AddSection = function(self, secName) return TabObj.AddSection(RightTabObj, secName) end
-            RightTabObj.AddCollapsibleSection = function(self, opts) return TabObj.AddCollapsibleSection(RightTabObj, opts) end
+            RightTabObj.AddSection = function(self, secName) return TabObj:AddSection(secName, rightCol) end
+            RightTabObj.AddCollapsibleSection = function(self, opts) return TabObj:AddCollapsibleSection(opts, rightCol) end
 
             return LeftTabObj, RightTabObj
         end
@@ -3104,8 +3108,11 @@ function Library:CreateWindow(options)
             local subPages = {}
             local subTabObjs = {}
 
+            local proxyNav = { Page = subContainer, SectionCount = 0 }
+            proxyNav.AddSection = function(self, secName) return TabObj:AddSection(secName, subContainer) end
+
             if mode == "Dropdown" then
-                local selectorSection = TabObj.AddSection({ Page = subContainer, SectionCount = 0 }, "Sub Navigation")
+                local selectorSection = proxyNav:AddSection("Sub Navigation")
                 local drop = selectorSection:AddDropdown({
                     Name = "Select View",
                     Options = subTabNames,
@@ -3135,8 +3142,8 @@ function Library:CreateWindow(options)
                 subPages[sName] = subPage
 
                 local subTabObj = { Page = subPage, SectionCount = 0 }
-                subTabObj.AddSection = function(self, secName) return TabObj.AddSection(subTabObj, secName) end
-                subTabObj.AddCollapsibleSection = function(self, opts) return TabObj.AddCollapsibleSection(subTabObj, opts) end
+                subTabObj.AddSection = function(self, secName) return TabObj:AddSection(secName, subPage) end
+                subTabObj.AddCollapsibleSection = function(self, opts) return TabObj:AddCollapsibleSection(opts, subPage) end
                 subTabObjs[sName] = subTabObj
             end
 
@@ -3386,24 +3393,30 @@ function Library:CreateWindow(options)
                 valLbl.Text = tostring(v)
             end
 
-            Library:TrackConnection(trackBg.InputBegan:Connect(function(i)
+            local sliderConns = {}
+            table.insert(sliderConns, trackBg.InputBegan:Connect(function(i)
                 if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
                     sliding = true
                     update(i.Position.X)
                 end
             end))
 
-            Library:TrackConnection(UserInputService.InputChanged:Connect(function(i)
+            table.insert(sliderConns, UserInputService.InputChanged:Connect(function(i)
                 if sliding and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
                     update(i.Position.X)
                 end
             end))
 
-            Library:TrackConnection(UserInputService.InputEnded:Connect(function(i)
+            table.insert(sliderConns, UserInputService.InputEnded:Connect(function(i)
                 if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
                     sliding = false
                 end
             end))
+
+            row.Destroying:Connect(function()
+                for _, conn in ipairs(sliderConns) do pcall(function() conn:Disconnect() end) end
+                sliderConns = {}
+            end)
 
             return obj
         end
@@ -3414,6 +3427,16 @@ function Library:CreateWindow(options)
             local b = sliderBlue  and sliderBlue.value  or 0
             local c = Color3.fromRGB(r, g, b)
             updateTheme(activeGroup, c)
+
+            if not ThemePresets["Custom"] then
+                ThemePresets["Custom"] = {}
+                for k, v in pairs(ThemePresets["Dark"]) do
+                    ThemePresets["Custom"][k] = v
+                end
+            end
+            ThemePresets["Custom"][activeGroup] = c
+            Library.Theme = "Custom"
+
             if previewSwatch then previewSwatch.BackgroundColor3 = c end
             if hexLabel then hexLabel.Text = toHex(c) end
             if activeGroup == "Accent" and miniIcon then miniIcon.BackgroundColor3 = c end

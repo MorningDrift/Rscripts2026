@@ -401,14 +401,9 @@ local function label(parent, props)
     return t
 end
 
--- lbl: 1.3x scaled version matching MD_Hub style
+-- lbl: alias to label primitive (1.3x scaling applied in label)
 local function lbl(parent, props)
-    local baseTs = props.ts or 12
-    local scaled = math.floor(baseTs * 1.3 + 0.5)
-    local p2 = {}
-    for k, v in pairs(props) do p2[k] = v end
-    p2.ts = scaled
-    return label(parent, p2)
+    return label(parent, props)
 end
 
 --  Tooltip Helper 
@@ -475,6 +470,8 @@ local function isInteractiveObject(pos)
     return false
 end
 
+local activeDraggingObject = nil
+
 local function makeDraggable(frame, handle, clickCallback)
     handle = handle or frame
     local dragging  = false
@@ -484,9 +481,11 @@ local function makeDraggable(frame, handle, clickCallback)
 
     Library:TrackConnection(handle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            if activeDraggingObject and activeDraggingObject ~= frame then return end
             if isInteractiveObject(Vector2.new(input.Position.X, input.Position.Y)) then
                 return
             end
+            activeDraggingObject = frame
             dragging  = true
             movedFar  = false
             dragStart = input.Position
@@ -495,7 +494,7 @@ local function makeDraggable(frame, handle, clickCallback)
     end))
 
     Library:TrackConnection(UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        if dragging and activeDraggingObject == frame and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
             if delta.Magnitude > 5 then
                 movedFar = true
@@ -511,6 +510,7 @@ local function makeDraggable(frame, handle, clickCallback)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             if dragging then
                 dragging = false
+                if activeDraggingObject == frame then activeDraggingObject = nil end
                 if not movedFar and clickCallback then
                     clickCallback()
                 end
@@ -541,10 +541,13 @@ local function deserializeValue(val)
             return Color3.new(val.R, val.G, val.B)
         elseif val.EnumType and val.Name then
             local ok, item = pcall(function()
-                local enumName = string.match(val.EnumType, "Enum%.(.*)") or val.EnumType
+                local rawType = tostring(val.EnumType)
+                local enumName = rawType:match("Enum%.([%w_]+)") or rawType:match("([%w_]+)$") or rawType
                 if Enum[enumName] and Enum[enumName][val.Name] then
                     return Enum[enumName][val.Name]
                 end
+                if Enum.KeyCode[val.Name] then return Enum.KeyCode[val.Name] end
+                if Enum.UserInputType[val.Name] then return Enum.UserInputType[val.Name] end
             end)
             if ok and item then return item end
         else
@@ -2388,12 +2391,11 @@ function Library:CreateWindow(options)
                 local nameText  = cpOpts.Name or "Color Picker"
                 local flag      = cpOpts.Flag
                 local default   = cpOpts.Default or Color3.fromRGB(255, 0, 0)
-                local hasAlpha  = cpOpts.Alpha or false
                 local callback  = cpOpts.Callback or function() end
 
                 SectionObj.ElementCount = SectionObj.ElementCount + 1
 
-                local container = Instance.new("Frame", secCard)
+                local container = Instance.new("Frame", SectionObj.Frame)
                 container.Size                   = UDim2.new(1, 0, 0, 36)
                 container.BackgroundTransparency = 1
                 container.BorderSizePixel        = 0
@@ -2421,168 +2423,321 @@ function Library:CreateWindow(options)
                 stroke(swatch, 1, "Border")
 
                 local currColor = default
-                local currAlpha = 1
                 if flag then Library.Flags[flag] = currColor end
 
-                local ColorPickerObj = { Flag = flag, Default = default }
+                local ColorPickerObj = { Flag = flag, Default = default, Value = default, Type = "Colorpicker" }
 
-                function ColorPickerObj:Set(color, alphaVal, skipCallback)
+                function ColorPickerObj:Set(color, skipCallback)
                     currColor = color
-                    if alphaVal ~= nil then currAlpha = alphaVal end
+                    ColorPickerObj.Value = color
                     swatch.BackgroundColor3 = currColor
                     if flag then Library.Flags[flag] = currColor end
                     if not skipCallback and not Library.IsLoadingConfig then
-                        pcall(callback, currColor, currAlpha)
+                        Library:SafeCallback(callback, currColor)
+                        if ColorPickerObj.Changed then Library:SafeCallback(ColorPickerObj.Changed, currColor) end
                     end
                     Library:SaveConfig()
                 end
 
-                function ColorPickerObj:Get()
-                    return currColor, currAlpha
+                function ColorPickerObj:SetValue(color) ColorPickerObj:Set(color) end
+                function ColorPickerObj:Get() return currColor end
+                function ColorPickerObj:GetValue() return currColor end
+                function ColorPickerObj:OnChanged(cb)
+                    ColorPickerObj.Changed = cb
+                    cb(currColor)
                 end
-
                 function ColorPickerObj:Destroy()
                     container:Destroy()
+                    if flag then Library.Options[flag] = nil end
                 end
 
-                -- Color Picker Dialog Toggle
                 local pickerOpen = false
-                local pickerFrame = nil
+                local modalBackdrop = nil
+                local modalWindow = nil
+                local popupConns = {}
+
+                local function closePicker()
+                    for _, conn in ipairs(popupConns) do pcall(function() conn:Disconnect() end) end
+                    popupConns = {}
+                    if modalBackdrop then modalBackdrop:Destroy(); modalBackdrop = nil end
+                    if modalWindow then modalWindow:Destroy(); modalWindow = nil end
+                    pickerOpen = false
+                end
 
                 swatch.MouseButton1Click:Connect(function()
                     if pickerOpen then
-                        if pickerFrame then pickerFrame:Destroy() end
-                        pickerOpen = false
+                        closePicker()
                         return
                     end
                     pickerOpen = true
 
-                    local sAbsPos = swatch.AbsolutePosition
-                    local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
-                    local pWidth = 180
-                    local pHeight = hasAlpha and 180 or 150
+                    local activeColor = ColorPickerObj.Value or currColor
+                    local h, s, v = Color3.toHSV(activeColor)
+                    local origColor = activeColor
 
-                    local posX = math.clamp(sAbsPos.X - 144, 4, math.max(4, vp.X - pWidth - 4))
-                    local posY = sAbsPos.Y + 26
-                    if posY + pHeight > vp.Y - 10 then
-                        posY = math.max(4, sAbsPos.Y - pHeight - 4)
+                    local MW_W, MW_H = 430, 290
+
+                    modalBackdrop = Instance.new("TextButton", overlayLayer)
+                    modalBackdrop.Name                   = "MD_ColorPickerBackdrop"
+                    modalBackdrop.Size                   = UDim2.new(1, 0, 1, 0)
+                    modalBackdrop.BackgroundTransparency = 1
+                    modalBackdrop.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
+                    modalBackdrop.BorderSizePixel        = 0
+                    modalBackdrop.ZIndex                 = 4000
+                    modalBackdrop.Text                   = ""
+                    twQ(modalBackdrop, 0.2, { BackgroundTransparency = 0.5 })
+
+                    modalWindow = Instance.new("Frame", overlayLayer)
+                    modalWindow.Name             = "MD_ColorPickerModal"
+                    modalWindow.Size             = UDim2.new(0, MW_W, 0, MW_H)
+                    modalWindow.Position         = UDim2.new(0.5, -MW_W/2, 0.5, -MW_H/2)
+                    modalWindow.BorderSizePixel  = 0
+                    modalWindow.Active           = true
+                    modalWindow.ZIndex           = 4001
+                    registerTheme(modalWindow, "BackgroundColor3", "Background")
+                    corner(modalWindow, 8)
+                    stroke(modalWindow, 1, "Border")
+
+                    makeDraggable(modalWindow, modalWindow)
+
+                    lbl(modalWindow, {
+                        size = UDim2.new(1, -30, 0, 24),
+                        pos = UDim2.new(0, 20, 0, 16),
+                        text = nameText,
+                        fontType = "Bold",
+                        ts = 16,
+                        theme = "Text",
+                        z = 4002
+                    })
+
+                    local satVibMap = Instance.new("ImageLabel", modalWindow)
+                    satVibMap.Size                   = UDim2.new(0, 180, 0, 160)
+                    satVibMap.Position               = UDim2.new(0, 20, 0, 48)
+                    satVibMap.BackgroundColor3       = Color3.fromHSV(h, 1, 1)
+                    satVibMap.BorderSizePixel        = 0
+                    satVibMap.Image                  = "rbxassetid://4155801252"
+                    satVibMap.ZIndex                 = 4002
+                    corner(satVibMap, 5)
+
+                    local cursor = Instance.new("ImageLabel", satVibMap)
+                    cursor.Size                   = UDim2.new(0, 14, 0, 14)
+                    cursor.AnchorPoint            = Vector2.new(0.5, 0.5)
+                    cursor.Position               = UDim2.new(s, 0, 1 - v, 0)
+                    cursor.BackgroundTransparency = 1
+                    cursor.Image                  = "rbxassetid://4805639000"
+                    cursor.ZIndex                 = 4003
+
+                    local hueBar = Instance.new("Frame", modalWindow)
+                    hueBar.Size                   = UDim2.new(0, 14, 0, 160)
+                    hueBar.Position               = UDim2.new(0, 210, 0, 48)
+                    hueBar.BorderSizePixel        = 0
+                    hueBar.ZIndex                 = 4002
+                    corner(hueBar, 7)
+
+                    local hueGrad = Instance.new("UIGradient", hueBar)
+                    hueGrad.Rotation = 90
+                    local rainbowSeq = {}
+                    for col = 0, 1, 0.1 do
+                        table.insert(rainbowSeq, ColorSequenceKeypoint.new(col, Color3.fromHSV(col, 1, 1)))
+                    end
+                    hueGrad.Color = ColorSequence.new(rainbowSeq)
+
+                    local hueCursor = Instance.new("Frame", hueBar)
+                    hueCursor.Size                   = UDim2.new(0, 18, 0, 10)
+                    hueCursor.AnchorPoint            = Vector2.new(0.5, 0.5)
+                    hueCursor.Position               = UDim2.new(0.5, 0, h, 0)
+                    hueCursor.BorderSizePixel        = 0
+                    hueCursor.ZIndex                 = 4003
+                    registerTheme(hueCursor, "BackgroundColor3", "Text")
+                    corner(hueCursor, 5)
+
+                    local origSwatch = Instance.new("Frame", modalWindow)
+                    origSwatch.Size                   = UDim2.new(0, 85, 0, 26)
+                    origSwatch.Position               = UDim2.new(0, 20, 0, 216)
+                    origSwatch.BackgroundColor3       = origColor
+                    origSwatch.BorderSizePixel        = 0
+                    origSwatch.ZIndex                 = 4002
+                    corner(origSwatch, 5)
+                    stroke(origSwatch, 1, "Border")
+
+                    local newSwatch = Instance.new("Frame", modalWindow)
+                    newSwatch.Size                   = UDim2.new(0, 85, 0, 26)
+                    newSwatch.Position               = UDim2.new(0, 115, 0, 216)
+                    newSwatch.BackgroundColor3       = activeColor
+                    newSwatch.BorderSizePixel        = 0
+                    newSwatch.ZIndex                 = 4002
+                    corner(newSwatch, 5)
+                    stroke(newSwatch, 1, "Border")
+
+                    local inputsFrame = Instance.new("Frame", modalWindow)
+                    inputsFrame.Size                   = UDim2.new(0, 170, 0, 194)
+                    inputsFrame.Position               = UDim2.new(0, 240, 0, 48)
+                    inputsFrame.BackgroundTransparency = 1
+                    inputsFrame.ZIndex                 = 4002
+
+                    local function toHex(c)
+                        return string.format("#%02X%02X%02X", math.floor(c.R*255), math.floor(c.G*255), math.floor(c.B*255))
                     end
 
-                    pickerFrame = Instance.new("Frame", overlayLayer)
-                    pickerFrame.Size                   = UDim2.new(0, pWidth, 0, pHeight)
-                    pickerFrame.Position               = UDim2.new(0, posX, 0, posY)
-                    pickerFrame.BorderSizePixel        = 0
-                    pickerFrame.ZIndex                 = 2000
-                    registerTheme(pickerFrame, "BackgroundColor3", "Elevated")
-                    corner(pickerFrame, 6)
-                    stroke(pickerFrame, 1, "Border")
+                    local hexInput, redInput, greenInput, blueInput
 
-                    local pPad = Instance.new("UIPadding", pickerFrame)
-                    pPad.PaddingLeft   = UDim.new(0, 8)
-                    pPad.PaddingRight  = UDim.new(0, 8)
-                    pPad.PaddingTop    = UDim.new(0, 8)
-                    pPad.PaddingBottom = UDim.new(0, 8)
+                    local function makeInputRow(posY, labelText, defaultText)
+                        local box = Instance.new("TextBox", inputsFrame)
+                        box.Size                   = UDim2.new(0, 100, 0, 32)
+                        box.Position               = UDim2.new(0, 0, 0, posY)
+                        box.BorderSizePixel        = 0
+                        box.Text                   = defaultText
+                        applyFont(box, "Medium")
+                        box.TextSize               = 12
+                        box.ZIndex                 = 4003
+                        registerTheme(box, "BackgroundColor3", "Elevated")
+                        registerTheme(box, "TextColor3", "Text")
+                        corner(box, 5)
+                        stroke(box, 1, "Border")
 
-                    local r = math.floor(currColor.R * 255)
-                    local g = math.floor(currColor.G * 255)
-                    local b = math.floor(currColor.B * 255)
+                        lbl(inputsFrame, {
+                            size = UDim2.new(0, 60, 0, 32),
+                            pos = UDim2.new(0, 110, 0, posY),
+                            text = labelText,
+                            fontType = "Medium",
+                            ts = 11,
+                            theme = "TextDim",
+                            z = 4003
+                        })
+                        return box
+                    end
 
-                    local hexBox = Instance.new("TextBox", pickerFrame)
-                    hexBox.Size                   = UDim2.new(1, 0, 0, 22)
-                    hexBox.Position               = UDim2.new(0, 0, 0, hasAlpha and 124 or 94)
-                    hexBox.BorderSizePixel        = 0
-                    hexBox.Text                   = string.format("#%02X%02X%02X", r, g, b)
-                    applyFont(hexBox, "Medium")
-                    hexBox.TextSize               = 11
-                    registerTheme(hexBox, "BackgroundColor3", "Panel")
-                    registerTheme(hexBox, "TextColor3", "Text")
-                    corner(hexBox, 4)
-                    stroke(hexBox, 1, "Border")
+                    hexInput   = makeInputRow(0,   "Hex",   toHex(activeColor))
+                    redInput   = makeInputRow(40,  "Red",   tostring(math.floor(activeColor.R*255)))
+                    greenInput = makeInputRow(80,  "Green", tostring(math.floor(activeColor.G*255)))
+                    blueInput  = makeInputRow(120, "Blue",  tostring(math.floor(activeColor.B*255)))
 
-                    hexBox.FocusLost:Connect(function()
-                        local str = hexBox.Text:gsub("#", "")
+                    local function updatePickerUI(updateInputs)
+                        activeColor = Color3.fromHSV(h, s, v)
+                        satVibMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+                        cursor.Position = UDim2.new(s, 0, 1 - v, 0)
+                        hueCursor.Position = UDim2.new(0.5, 0, h, 0)
+                        newSwatch.BackgroundColor3 = activeColor
+
+                        if updateInputs then
+                            hexInput.Text   = toHex(activeColor)
+                            redInput.Text   = tostring(math.floor(activeColor.R*255))
+                            greenInput.Text = tostring(math.floor(activeColor.G*255))
+                            blueInput.Text  = tostring(math.floor(activeColor.B*255))
+                        end
+                    end
+
+                    local draggingSat = false
+                    table.insert(popupConns, satVibMap.InputBegan:Connect(function(i)
+                        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                            draggingSat = true
+                            local relX = math.clamp((i.Position.X - satVibMap.AbsolutePosition.X) / satVibMap.AbsoluteSize.X, 0, 1)
+                            local relY = math.clamp((i.Position.Y - satVibMap.AbsolutePosition.Y) / satVibMap.AbsoluteSize.Y, 0, 1)
+                            s = relX
+                            v = 1 - relY
+                            updatePickerUI(true)
+                        end
+                    end))
+
+                    table.insert(popupConns, UserInputService.InputChanged:Connect(function(i)
+                        if draggingSat and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+                            local relX = math.clamp((i.Position.X - satVibMap.AbsolutePosition.X) / satVibMap.AbsoluteSize.X, 0, 1)
+                            local relY = math.clamp((i.Position.Y - satVibMap.AbsolutePosition.Y) / satVibMap.AbsoluteSize.Y, 0, 1)
+                            s = relX
+                            v = 1 - relY
+                            updatePickerUI(true)
+                        end
+                    end))
+
+                    local draggingHue = false
+                    table.insert(popupConns, hueBar.InputBegan:Connect(function(i)
+                        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                            draggingHue = true
+                            h = math.clamp((i.Position.Y - hueBar.AbsolutePosition.Y) / hueBar.AbsoluteSize.Y, 0, 1)
+                            updatePickerUI(true)
+                        end
+                    end))
+
+                    table.insert(popupConns, UserInputService.InputChanged:Connect(function(i)
+                        if draggingHue and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+                            h = math.clamp((i.Position.Y - hueBar.AbsolutePosition.Y) / hueBar.AbsoluteSize.Y, 0, 1)
+                            updatePickerUI(true)
+                        end
+                    end))
+
+                    table.insert(popupConns, UserInputService.InputEnded:Connect(function(i)
+                        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                            draggingSat = false
+                            draggingHue = false
+                        end
+                    end))
+
+                    table.insert(popupConns, hexInput.FocusLost:Connect(function()
+                        local str = hexInput.Text:gsub("#", "")
                         if #str == 6 then
-                            local hr, hg, hb = str:sub(1, 2), str:sub(3, 4), str:sub(5, 6)
-                            local nr, ng, nb = tonumber(hr, 16), tonumber(hg, 16), tonumber(hb, 16)
+                            local nr, ng, nb = tonumber(str:sub(1,2), 16), tonumber(str:sub(3,4), 16), tonumber(str:sub(5,6), 16)
                             if nr and ng and nb then
-                                ColorPickerObj:Set(Color3.fromRGB(nr, ng, nb), currAlpha)
+                                activeColor = Color3.fromRGB(nr, ng, nb)
+                                h, s, v = Color3.toHSV(activeColor)
+                                updatePickerUI(true)
                             end
                         end
-                    end)
+                    end))
 
-                    local function makeRgbSlider(posY, letter, initial, maxVal, colorKey, onVal)
-                        local sRow = Instance.new("Frame", pickerFrame)
-                        sRow.Size                   = UDim2.new(1, 0, 0, 24)
-                        sRow.Position               = UDim2.new(0, 0, 0, posY)
-                        sRow.BackgroundTransparency = 1
-
-                        label(sRow, { size = UDim2.new(0, 14, 1, 0), text = letter, fontType = "Bold", ts = 11, color = colorKey })
-                        local tTrack = Instance.new("TextButton", sRow)
-                        tTrack.Size                   = UDim2.new(1, -20, 0, 6)
-                        tTrack.Position               = UDim2.new(0, 20, 0.5, -3)
-                        tTrack.BorderSizePixel        = 0
-                        tTrack.Text                   = ""
-                        registerTheme(tTrack, "BackgroundColor3", "Panel")
-                        corner(tTrack, 3)
-
-                        local tFill = Instance.new("Frame", tTrack)
-                        tFill.Size                   = UDim2.new(initial / maxVal, 0, 1, 0)
-                        tFill.BorderSizePixel        = 0
-                        tFill.BackgroundColor3       = colorKey
-                        corner(tFill, 3)
-
-                        local sliding = false
-                        local function update(px)
-                            local rel = math.clamp((px - tTrack.AbsolutePosition.X) / tTrack.AbsoluteSize.X, 0, 1)
-                            local v = math.floor(rel * maxVal)
-                            tFill.Size = UDim2.new(rel, 0, 1, 0)
-                            onVal(v)
-                            hexBox.Text = string.format("#%02X%02X%02X", r, g, b)
-                        end
-
-                        Library:TrackConnection(tTrack.InputBegan:Connect(function(i)
-                            if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-                                sliding = true
-                                update(i.Position.X)
-                            end
-                        end))
-                        Library:TrackConnection(UserInputService.InputChanged:Connect(function(i)
-                            if sliding and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-                                update(i.Position.X)
-                            end
-                        end))
-                        Library:TrackConnection(UserInputService.InputEnded:Connect(function(i)
-                            if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-                                sliding = false
-                            end
-                        end))
+                    local function onRgbInput()
+                        local nr = math.clamp(tonumber(redInput.Text) or 0, 0, 255)
+                        local ng = math.clamp(tonumber(greenInput.Text) or 0, 0, 255)
+                        local nb = math.clamp(tonumber(blueInput.Text) or 0, 0, 255)
+                        activeColor = Color3.fromRGB(nr, ng, nb)
+                        h, s, v = Color3.toHSV(activeColor)
+                        updatePickerUI(true)
                     end
 
-                    makeRgbSlider(4,  "R", r, 255, Color3.fromRGB(240, 80, 80), function(v) r = v; ColorPickerObj:Set(Color3.fromRGB(r, g, b), currAlpha) end)
-                    makeRgbSlider(34, "G", g, 255, Color3.fromRGB(50, 180, 110), function(v) g = v; ColorPickerObj:Set(Color3.fromRGB(r, g, b), currAlpha) end)
-                    makeRgbSlider(64, "B", b, 255, Color3.fromRGB(70, 130, 220), function(v) b = v; ColorPickerObj:Set(Color3.fromRGB(r, g, b), currAlpha) end)
+                    table.insert(popupConns, redInput.FocusLost:Connect(onRgbInput))
+                    table.insert(popupConns, greenInput.FocusLost:Connect(onRgbInput))
+                    table.insert(popupConns, blueInput.FocusLost:Connect(onRgbInput))
 
-                    if hasAlpha then
-                        makeRgbSlider(94, "A", math.floor(currAlpha * 100), 100, Color3.fromRGB(180, 180, 180), function(v) currAlpha = v / 100; ColorPickerObj:Set(Color3.fromRGB(r, g, b), currAlpha) end)
-                    end
+                    local doneBtn = Instance.new("TextButton", modalWindow)
+                    doneBtn.Size                   = UDim2.new(0, 185, 0, 34)
+                    doneBtn.Position               = UDim2.new(0, 20, 0, 244)
+                    doneBtn.BorderSizePixel        = 0
+                    doneBtn.Text                   = "Done"
+                    applyFont(doneBtn, "Bold")
+                    doneBtn.TextSize               = 13
+                    doneBtn.ZIndex                 = 4003
+                    registerTheme(doneBtn, "BackgroundColor3", "Elevated")
+                    registerTheme(doneBtn, "TextColor3", "Text")
+                    corner(doneBtn, 6)
+                    stroke(doneBtn, 1, "Border")
 
-                    local closeP = Instance.new("TextButton", pickerFrame)
-                    closeP.Size                   = UDim2.new(1, 0, 0, 22)
-                    closeP.Position               = UDim2.new(0, 0, 1, -22)
-                    closeP.BorderSizePixel        = 0
-                    closeP.Text                   = "Close"
-                    applyFont(closeP, "Bold")
-                    closeP.TextSize               = 12
-                    registerTheme(closeP, "BackgroundColor3", "Accent")
-                    registerTheme(closeP, "TextColor3", "Text")
-                    corner(closeP, 4)
+                    table.insert(popupConns, doneBtn.MouseButton1Click:Connect(function()
+                        ColorPickerObj:Set(activeColor)
+                        closePicker()
+                    end))
 
-                    closeP.MouseButton1Click:Connect(function()
-                        pickerFrame:Destroy()
-                        pickerOpen = false
-                    end)
+                    local cancelBtn = Instance.new("TextButton", modalWindow)
+                    cancelBtn.Size                   = UDim2.new(0, 185, 0, 34)
+                    cancelBtn.Position               = UDim2.new(0, 225, 0, 244)
+                    cancelBtn.BorderSizePixel        = 0
+                    cancelBtn.Text                   = "Cancel"
+                    applyFont(cancelBtn, "Bold")
+                    cancelBtn.TextSize               = 13
+                    cancelBtn.ZIndex                 = 4003
+                    registerTheme(cancelBtn, "BackgroundColor3", "Elevated")
+                    registerTheme(cancelBtn, "TextColor3", "TextDim")
+                    corner(cancelBtn, 6)
+                    stroke(cancelBtn, 1, "Border")
+
+                    table.insert(popupConns, cancelBtn.MouseButton1Click:Connect(function()
+                        closePicker()
+                    end))
+
+                    table.insert(popupConns, modalBackdrop.MouseButton1Click:Connect(function()
+                        closePicker()
+                    end))
                 end)
 
+                if flag then Library.Options[flag] = ColorPickerObj end
                 table.insert(Library.Elements, ColorPickerObj)
                 return ColorPickerObj
             end
@@ -3309,6 +3464,7 @@ function Library:Destroy()
     self.Options  = {}
     self.Elements = {}
     fontRegistry  = {}
+    themeRegistry = {}
 end
 
 if getgenv then

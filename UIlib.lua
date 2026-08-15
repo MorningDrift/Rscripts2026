@@ -1,4 +1,4 @@
-print("dyoooo")
+
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -1672,14 +1672,14 @@ function Library:CreateWindow(options)
                 SectionObj.ElementCount = SectionObj.ElementCount + 1
 
                 local container = Instance.new("Frame", secCard)
-                container.Size                   = UDim2.new(1, 0, 0, 42)
+                container.Size                   = UDim2.new(1, 0, 0, 36)
                 container.BackgroundTransparency = 1
                 container.BorderSizePixel        = 0
                 container.LayoutOrder            = SectionObj.ElementCount
                 container.ZIndex                 = 6
 
                 label(container, {
-                    size = UDim2.new(1, -80, 0, 18),
+                    size = UDim2.new(0.44, 0, 1, 0),
                     pos = UDim2.new(0, 0, 0, 0),
                     text = nameText,
                     fontType = "Medium",
@@ -1689,8 +1689,8 @@ function Library:CreateWindow(options)
                 })
 
                 local valLbl = label(container, {
-                    size = UDim2.new(0, 70, 0, 18),
-                    pos = UDim2.new(1, -70, 0, 0),
+                    size = UDim2.new(0, 32, 1, 0),
+                    pos = UDim2.new(0.45, 0, 0, 0),
                     text = tostring(default) .. suffix,
                     fontType = "Medium",
                     ts = 11,
@@ -1700,13 +1700,13 @@ function Library:CreateWindow(options)
                 })
 
                 local trackBg = Instance.new("TextButton", container)
-                trackBg.Size                   = UDim2.new(1, 0, 0, 6)
-                trackBg.Position               = UDim2.new(0, 0, 0, 26)
+                trackBg.Size                   = UDim2.new(0.50, -6, 0, 4)
+                trackBg.Position               = UDim2.new(0.50, 6, 0.5, -2)
                 trackBg.BorderSizePixel        = 0
                 trackBg.Text                   = ""
                 trackBg.ZIndex                 = 7
                 registerTheme(trackBg, "BackgroundColor3", "Elevated")
-                corner(trackBg, 3)
+                corner(trackBg, 2)
 
                 local relInit = math.clamp((default - minVal) / (maxVal - minVal), 0, 1)
 
@@ -1715,16 +1715,16 @@ function Library:CreateWindow(options)
                 fill.BorderSizePixel        = 0
                 fill.ZIndex                 = 8
                 registerTheme(fill, "BackgroundColor3", "Accent")
-                corner(fill, 3)
+                corner(fill, 2)
 
                 local thumb = Instance.new("Frame", trackBg)
-                thumb.Size                   = UDim2.new(0, 12, 0, 12)
+                thumb.Size                   = UDim2.new(0, 14, 0, 14)
                 thumb.AnchorPoint            = Vector2.new(0.5, 0.5)
                 thumb.Position               = UDim2.new(relInit, 0, 0.5, 0)
                 thumb.BorderSizePixel        = 0
                 thumb.ZIndex                 = 9
-                registerTheme(thumb, "BackgroundColor3", "Text")
-                corner(thumb, 6)
+                registerTheme(thumb, "BackgroundColor3", "Accent")
+                corner(thumb, 7)
 
                 local currVal = default
                 if flag then Library.Flags[flag] = currVal end
@@ -1971,8 +1971,10 @@ function Library:CreateWindow(options)
                     local btnAbsSz  = dropBtn.AbsoluteSize
 
                     local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+                    local hasSearch = #options > 5
+                    local searchH = hasSearch and 32 or 0
                     local mWidth = btnAbsSz.X
-                    local mHeight = math.min(#options * 28 + 8, 140)
+                    local mHeight = math.min(#options * 28 + searchH + 8, 180)
                     local posX = math.clamp(btnAbsPos.X, 4, math.max(4, vp.X - mWidth - 4))
                     local posY = btnAbsPos.Y + btnAbsSz.Y + 4
                     if posY + mHeight > vp.Y - 10 then
@@ -1984,15 +1986,55 @@ function Library:CreateWindow(options)
                     menuFrame.Position               = UDim2.new(0, posX, 0, posY)
                     menuFrame.BorderSizePixel        = 0
                     menuFrame.ZIndex                 = 2000
+                    menuFrame.BackgroundTransparency = 1
                     registerTheme(menuFrame, "BackgroundColor3", "Elevated")
                     corner(menuFrame, 6)
                     stroke(menuFrame, 1, "Border")
 
+                    twQ(menuFrame, 0.15, { BackgroundTransparency = 0 })
+
                     activeMenuFrame   = menuFrame
                     activeCloseMenuFn = closeMenu
 
+                    local scrollPos = hasSearch and UDim2.new(0, 0, 0, 32) or UDim2.new(0, 0, 0, 0)
+                    local scrollSz  = hasSearch and UDim2.new(1, 0, 1, -32) or UDim2.new(1, 0, 1, 0)
+
+                    if hasSearch then
+                        local searchFrame = Instance.new("Frame", menuFrame)
+                        searchFrame.Size                   = UDim2.new(1, -8, 0, 26)
+                        searchFrame.Position               = UDim2.new(0, 4, 0, 4)
+                        searchFrame.BackgroundTransparency = 1
+                        searchFrame.ZIndex                 = 2001
+
+                        local sBox = Instance.new("TextBox", searchFrame)
+                        sBox.Size                   = UDim2.new(1, 0, 1, 0)
+                        sBox.BackgroundTransparency = 0.8
+                        sBox.BorderSizePixel        = 0
+                        sBox.Text                   = ""
+                        sBox.PlaceholderText        = "Search options..."
+                        applyFont(sBox, "Medium")
+                        sBox.TextSize               = 11
+                        sBox.ZIndex                 = 2002
+                        registerTheme(sBox, "BackgroundColor3", "Background")
+                        registerTheme(sBox, "TextColor3", "Text")
+                        registerTheme(sBox, "PlaceholderColor3", "TextDim")
+                        corner(sBox, 4)
+
+                        sBox:GetPropertyChangedSignal("Text"):Connect(function()
+                            local query = string.lower(sBox.Text)
+                            for opt, optInfo in pairs(optionButtons) do
+                                if query == "" or string.find(string.lower(opt), query, 1, true) then
+                                    optInfo.Btn.Visible = true
+                                else
+                                    optInfo.Btn.Visible = false
+                                end
+                            end
+                        end)
+                    end
+
                     local scroll = Instance.new("ScrollingFrame", menuFrame)
-                    scroll.Size                   = UDim2.new(1, 0, 1, 0)
+                    scroll.Size                   = scrollSz
+                    scroll.Position               = scrollPos
                     scroll.BackgroundTransparency = 1
                     scroll.BorderSizePixel        = 0
                     scroll.ScrollBarThickness     = 3
@@ -2771,27 +2813,74 @@ function Library:CreateWindow(options)
         return TabObj
     end
 
-    local function buildAppearanceTab()
+    local function buildSettingsTab()
         if WindowObj._settingsTabObj then return end
         local sep = WindowObj:AddSeparator()
         sep.LayoutOrder = 9997
         local secLbl = WindowObj:AddSectionLabel("OTHER")
         secLbl.LayoutOrder = 9998
-        local apTab = WindowObj:AddTab({ Name = "Appearance", Icon = Library.Icons.Gear })
-        apTab.Btn.LayoutOrder = 9999
-        WindowObj._settingsTabObj = apTab
+        local settingsTab = WindowObj:AddTab({ Name = "Settings", Icon = Library.Icons.Gear })
+        settingsTab.Btn.LayoutOrder = 9999
+        WindowObj._settingsTabObj = settingsTab
 
-        local appearancePage = apTab.Page
+        -- Section 1: Theme & Unload Controls
+        local themeSec = settingsTab:AddCollapsibleSection({
+            Name = "Theme & Unload",
+            Desc = "Manage color presets, configs, and UI lifecycle",
+            DefaultOpen = true
+        })
 
-        -- Header
-        local apHeader = Instance.new("Frame", appearancePage)
-        apHeader.Size = UDim2.new(1, 0, 0, 44)
-        apHeader.BackgroundTransparency = 1
-        apHeader.LayoutOrder = 0
-        lbl(apHeader, { size = UDim2.new(1, 0, 0, 24), pos = UDim2.new(0, 0, 0, 0), text = "Appearance", fontType = "Bold", ts = 18, theme = "Text", z = 5 })
-        lbl(apHeader, { size = UDim2.new(1, 0, 0, 16), pos = UDim2.new(0, 0, 0, 26), text = "Customize the colors", fontType = "Medium", ts = 11, theme = "TextDim", z = 5 })
+        themeSec:AddDropdown({
+            Name = "Theme Preset",
+            Options = { "Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose" },
+            Default = Library.Theme or "Dark",
+            Callback = function(themeName)
+                Library:SetTheme(themeName)
+            end
+        })
 
-        -- Color group segmented selector
+        themeSec:AddButton({
+            Name = "Save Config",
+            Desc = "Save current element states to file",
+            Callback = function()
+                Library:SaveConfig()
+                Library:Notify({ Title = "Settings", Content = "Configuration saved successfully!", Duration = 3 })
+            end
+        })
+
+        themeSec:AddButton({
+            Name = "Reset Config",
+            Desc = "Reset all element states to defaults",
+            Callback = function()
+                Library:ResetConfig()
+                Library:Notify({ Title = "Settings", Content = "Configuration reset to default!", Duration = 3 })
+            end
+        })
+
+        themeSec:AddButton({
+            Name = "Unload Script",
+            Desc = "Stops all script activities and destroys UI",
+            Callback = function()
+                Library:Dialog({
+                    Title = "Unload Script?",
+                    Content = "Are you sure you want to unload the script and destroy the interface?",
+                    Buttons = {
+                        { Title = "Cancel", Callback = function() end },
+                        { Title = "Unload", Callback = function() Library:Destroy() end }
+                    }
+                })
+            end
+        })
+
+        -- Section 2: Custom Appearance & Fluent RGB/HSV ColorPicker
+        local apSec = settingsTab:AddCollapsibleSection({
+            Name = "Appearance Colors",
+            Desc = "Fine-tune individual color groups with RGB sliders and preview",
+            DefaultOpen = true
+        })
+
+        local appearancePage = apSec.Card
+
         local apSegFrame = Instance.new("Frame", appearancePage)
         apSegFrame.Size = UDim2.new(1, 0, 0, 32)
         apSegFrame.BorderSizePixel = 0
@@ -2879,7 +2968,7 @@ function Library:CreateWindow(options)
         apPreviewRow.LayoutOrder = 2
         apPreviewRow.ZIndex = 5
 
-        lbl(apPreviewRow, { size = UDim2.new(1, -100, 1, 0), pos = UDim2.new(0, 0, 0, 0), text = "colors", fontType = "Bold", ts = 9, theme = "TextDim", z = 5 })
+        lbl(apPreviewRow, { size = UDim2.new(1, -100, 1, 0), pos = UDim2.new(0, 12, 0, 0), text = "Color Swatch", fontType = "Bold", ts = 10, theme = "TextDim", z = 5 })
 
         previewSwatch = Instance.new("Frame", apPreviewRow)
         previewSwatch.Size = UDim2.new(0, 18, 0, 18)
@@ -3001,46 +3090,10 @@ function Library:CreateWindow(options)
         sliderGreen = makeColorSlider(apSlidersFrame, "G", 38, math.floor(Theme.Accent.G*255), Color3.fromRGB(50, 180, 110), function() applyRGB() end)
         sliderBlue  = makeColorSlider(apSlidersFrame, "B", 74, math.floor(Theme.Accent.B*255), Color3.fromRGB(70, 130, 220), function() applyRGB() end)
 
-        -- Save button
-        local apSaveFrame = Instance.new("Frame", appearancePage)
-        apSaveFrame.Size = UDim2.new(1, 0, 0, 36)
-        apSaveFrame.BackgroundTransparency = 1
-        apSaveFrame.LayoutOrder = 4
-
-        local saveBtn = Instance.new("TextButton", apSaveFrame)
-        saveBtn.Size = UDim2.new(0, 126, 0, 32)
-        saveBtn.Position = UDim2.new(0.74, 0, 0.5, -16)
-        saveBtn.BorderSizePixel = 0
-        saveBtn.Text = "     Save Changes"
-        applyFont(saveBtn, "Bold")
-        saveBtn.TextSize = 15
-        saveBtn.ZIndex = 6
-        registerTheme(saveBtn, "BackgroundColor3", "Accent")
-        registerTheme(saveBtn, "TextColor3", "Text")
-        corner(saveBtn, 5)
-
-        local saveIcon = Instance.new("ImageLabel", saveBtn)
-        saveIcon.Size = UDim2.new(0, 14, 0, 14)
-        saveIcon.Position = UDim2.new(0, 10, 0.5, -7)
-        saveIcon.BackgroundTransparency = 1
-        saveIcon.Image = "rbxassetid://124051774666561"
-        saveIcon.ZIndex = 7
-        registerTheme(saveIcon, "ImageColor3", "Text")
-
-        saveBtn.MouseEnter:Connect(function() twQ(saveBtn, 0.12, { BackgroundColor3 = Theme.AccentHover or Color3.fromRGB(255, 135, 45) }) end)
-        saveBtn.MouseLeave:Connect(function() twQ(saveBtn, 0.12, { BackgroundColor3 = Theme.Accent }) end)
-        saveBtn.MouseButton1Down:Connect(function() twQ(saveBtn, 0.07, { BackgroundColor3 = Theme.AccentDim }) end)
-        saveBtn.MouseButton1Up:Connect(function() twQ(saveBtn, 0.12, { BackgroundColor3 = Theme.Accent }) end)
-        saveBtn.MouseButton1Click:Connect(function()
-            Library:SaveConfig()
-            saveBtn.Text = "     Saved"
-            task.delay(1.2, function() saveBtn.Text = "     Save Changes" end)
-        end)
-
         updateSlidersFromGroup("Accent")
     end
 
-    buildAppearanceTab()
+    buildSettingsTab()
 
     settingsBtn.MouseButton1Click:Connect(function()
         if WindowObj._settingsTabObj then

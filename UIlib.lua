@@ -103,8 +103,11 @@ local fontBold, fontMedium, fontSemi = nil, nil, nil
 local fontRegistry = {}
 
 local function refreshAllFonts()
-    for _, item in ipairs(fontRegistry) do
-        if item.Inst and item.Inst.Parent then
+    for i = #fontRegistry, 1, -1 do
+        local item = fontRegistry[i]
+        if not item.Inst or not item.Inst.Parent then
+            table.remove(fontRegistry, i)
+        else
             local fType = item.Type
             local targetFont = fontBold
             if fType == "Medium" then
@@ -142,11 +145,15 @@ local function loadFont(url, fileName, weight)
     end)
 end
 
-coroutine.wrap(function()
+task.spawn(function()
     loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-Bold.ttf",     "MDHub_Kanit_Bold.ttf",     Enum.FontWeight.Bold)
+end)
+task.spawn(function()
     loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-Medium.ttf",   "MDHub_Kanit_Medium.ttf",   Enum.FontWeight.Medium)
+end)
+task.spawn(function()
     loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-SemiBold.ttf", "MDHub_Kanit_SemiBold.ttf", Enum.FontWeight.SemiBold)
-end)()
+end)
 
 local function applyFont(inst, fType)
     table.insert(fontRegistry, { Inst = inst, Type = fType })
@@ -2672,9 +2679,9 @@ function Library:CreateWindow(options)
         saveBtn.MouseButton1Down:Connect(function() twQ(saveBtn, 0.07, { BackgroundColor3 = Theme.AccentDim }) end)
         saveBtn.MouseButton1Up:Connect(function() twQ(saveBtn, 0.12, { BackgroundColor3 = Theme.Accent }) end)
         saveBtn.MouseButton1Click:Connect(function()
-            self:SaveConfig()
+            Library:SaveConfig()
             saveBtn.Text = "     Saved"
-            task.delay(1.2, function() saveBtn.Text = "  Save Changes" end)
+            task.delay(1.2, function() saveBtn.Text = "     Save Changes" end)
         end)
 
         updateSlidersFromGroup("Accent")
@@ -2716,6 +2723,7 @@ function Library:Destroy()
 
     self.Flags    = {}
     self.Elements = {}
+    fontRegistry  = {}
 end
 
 return Library

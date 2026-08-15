@@ -2810,6 +2810,184 @@ function Library:CreateWindow(options)
             return SectionObj
         end
 
+        function TabObj:AddCollapsibleSection(opts)
+            if typeof(opts) == "string" then
+                opts = { Name = opts }
+            end
+            opts = opts or {}
+            local secName     = opts.Name or opts.Title or "Section"
+            local secDesc     = opts.Desc or opts.Description
+            local defaultOpen = opts.DefaultOpen ~= false
+
+            TabObj.SectionCount = TabObj.SectionCount + 1
+
+            local secCard = Instance.new("Frame", page)
+            secCard.Size                  = UDim2.new(1, 0, 0, 0)
+            secCard.AutomaticSize         = defaultOpen and Enum.AutomaticSize.Y or Enum.AutomaticSize.None
+            secCard.BorderSizePixel        = 0
+            secCard.LayoutOrder           = TabObj.SectionCount
+            secCard.ClipsDescendants      = true
+            secCard.ZIndex                = 5
+            registerTheme(secCard, "BackgroundColor3", "Panel")
+            corner(secCard, 6)
+            stroke(secCard, 1, "Border")
+
+            local headBtn = Instance.new("TextButton", secCard)
+            headBtn.Size                   = UDim2.new(1, 0, 0, secDesc and 40 or 32)
+            headBtn.BackgroundTransparency = 1
+            headBtn.BorderSizePixel        = 0
+            headBtn.Text                   = ""
+            headBtn.LayoutOrder            = -999
+            headBtn.ZIndex                 = 6
+
+            if secDesc and secDesc ~= "" then
+                label(headBtn, { size = UDim2.new(1, -30, 0, 20), pos = UDim2.new(0, 12, 0, 4), text = secName, fontType = "Bold", ts = 13, theme = "Text", z = 7 })
+                label(headBtn, { size = UDim2.new(1, -30, 0, 16), pos = UDim2.new(0, 12, 0, 22), text = secDesc, fontType = "Medium", ts = 10, theme = "TextDim", z = 7 })
+            else
+                label(headBtn, { size = UDim2.new(1, -30, 1, 0), pos = UDim2.new(0, 12, 0, 0), text = secName, fontType = "Bold", ts = 13, theme = "Text", z = 7 })
+            end
+
+            local arrow = label(headBtn, { size = UDim2.new(0, 20, 1, 0), pos = UDim2.new(1, -24, 0, 0), text = defaultOpen and "^" or "v", fontType = "Bold", ts = 11, theme = "TextDim", ax = Enum.TextXAlignment.Center, z = 7 })
+
+            local contentContainer = Instance.new("Frame", secCard)
+            contentContainer.Size                   = UDim2.new(1, 0, 0, 0)
+            contentContainer.AutomaticSize          = Enum.AutomaticSize.Y
+            contentContainer.BackgroundTransparency = 1
+            contentContainer.BorderSizePixel        = 0
+            contentContainer.LayoutOrder            = 1
+            contentContainer.Visible                = defaultOpen
+            contentContainer.ZIndex                 = 6
+
+            local cPad = Instance.new("UIPadding", contentContainer)
+            cPad.PaddingLeft   = UDim.new(0, 12)
+            cPad.PaddingRight  = UDim.new(0, 12)
+            cPad.PaddingTop    = UDim.new(0, 4)
+            cPad.PaddingBottom = UDim.new(0, 10)
+
+            local cLayout = Instance.new("UIListLayout", contentContainer)
+            cLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            cLayout.Padding   = UDim.new(0, 8)
+
+            local isOpen = defaultOpen
+            headBtn.MouseButton1Click:Connect(function()
+                isOpen = not isOpen
+                arrow.Text = isOpen and "^" or "v"
+                contentContainer.Visible = isOpen
+                if isOpen then
+                    secCard.Size = UDim2.new(1, 0, 0, 0)
+                    secCard.AutomaticSize = Enum.AutomaticSize.Y
+                else
+                    secCard.AutomaticSize = Enum.AutomaticSize.None
+                    secCard.Size = UDim2.new(1, 0, 0, secDesc and 40 or 32)
+                end
+            end)
+
+            local tempTabObj = { Page = contentContainer, SectionCount = 0 }
+            local secObj = TabObj.AddSection(tempTabObj, "")
+            secObj.Card  = secCard
+            return secObj
+        end
+
+        function TabObj:AddColumns()
+            TabObj.SectionCount = TabObj.SectionCount + 1
+
+            local gridFrame = Instance.new("Frame", page)
+            gridFrame.Size                   = UDim2.new(1, 0, 0, 0)
+            gridFrame.AutomaticSize          = Enum.AutomaticSize.Y
+            gridFrame.BackgroundTransparency = 1
+            gridFrame.BorderSizePixel        = 0
+            gridFrame.LayoutOrder            = TabObj.SectionCount
+            gridFrame.ZIndex                 = 5
+
+            local leftCol = Instance.new("Frame", gridFrame)
+            leftCol.Size                   = UDim2.new(0.49, 0, 0, 0)
+            leftCol.Position               = UDim2.new(0, 0, 0, 0)
+            leftCol.AutomaticSize          = Enum.AutomaticSize.Y
+            leftCol.BackgroundTransparency = 1
+            leftCol.BorderSizePixel        = 0
+            leftCol.ZIndex                 = 5
+
+            local lLayout = Instance.new("UIListLayout", leftCol)
+            lLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            lLayout.Padding   = UDim.new(0, 10)
+
+            local rightCol = Instance.new("Frame", gridFrame)
+            rightCol.Size                   = UDim2.new(0.49, 0, 0, 0)
+            rightCol.Position               = UDim2.new(0.51, 0, 0, 0)
+            rightCol.AutomaticSize          = Enum.AutomaticSize.Y
+            rightCol.BackgroundTransparency = 1
+            rightCol.BorderSizePixel        = 0
+            rightCol.ZIndex                 = 5
+
+            local rLayout = Instance.new("UIListLayout", rightCol)
+            rLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            rLayout.Padding   = UDim.new(0, 10)
+
+            local LeftTabObj = { Page = leftCol, SectionCount = 0 }
+            LeftTabObj.AddSection = function(self, secName) return TabObj.AddSection(LeftTabObj, secName) end
+            LeftTabObj.AddCollapsibleSection = function(self, opts) return TabObj.AddCollapsibleSection(LeftTabObj, opts) end
+
+            local RightTabObj = { Page = rightCol, SectionCount = 0 }
+            RightTabObj.AddSection = function(self, secName) return TabObj.AddSection(RightTabObj, secName) end
+            RightTabObj.AddCollapsibleSection = function(self, opts) return TabObj.AddCollapsibleSection(RightTabObj, opts) end
+
+            return LeftTabObj, RightTabObj
+        end
+
+        function TabObj:AddSubTabs(subTabNames, mode)
+            mode = mode or "Dropdown"
+            TabObj.SectionCount = TabObj.SectionCount + 1
+
+            local subContainer = Instance.new("Frame", page)
+            subContainer.Size                   = UDim2.new(1, 0, 0, 0)
+            subContainer.AutomaticSize          = Enum.AutomaticSize.Y
+            subContainer.BackgroundTransparency = 1
+            subContainer.BorderSizePixel        = 0
+            subContainer.LayoutOrder            = TabObj.SectionCount
+            subContainer.ZIndex                 = 5
+
+            local subPages = {}
+            local subTabObjs = {}
+
+            if mode == "Dropdown" then
+                local selectorSection = TabObj.AddSection({ Page = subContainer, SectionCount = 0 }, "Sub Navigation")
+                local drop = selectorSection:AddDropdown({
+                    Name = "Select View",
+                    Options = subTabNames,
+                    Default = subTabNames[1],
+                    Callback = function(selected)
+                        for name, subP in pairs(subPages) do
+                            subP.Visible = (name == selected)
+                        end
+                    end
+                })
+            end
+
+            for idx, sName in ipairs(subTabNames) do
+                local subPage = Instance.new("Frame", subContainer)
+                subPage.Name                   = "SubPage_" .. sName
+                subPage.Size                   = UDim2.new(1, 0, 0, 0)
+                subPage.AutomaticSize          = Enum.AutomaticSize.Y
+                subPage.BackgroundTransparency = 1
+                subPage.BorderSizePixel        = 0
+                subPage.Visible                = (idx == 1)
+                subPage.ZIndex                 = 5
+
+                local sLayout = Instance.new("UIListLayout", subPage)
+                sLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                sLayout.Padding   = UDim.new(0, 10)
+
+                subPages[sName] = subPage
+
+                local subTabObj = { Page = subPage, SectionCount = 0 }
+                subTabObj.AddSection = function(self, secName) return TabObj.AddSection(subTabObj, secName) end
+                subTabObj.AddCollapsibleSection = function(self, opts) return TabObj.AddCollapsibleSection(subTabObj, opts) end
+                subTabObjs[sName] = subTabObj
+            end
+
+            return subTabObjs
+        end
+
         return TabObj
     end
 

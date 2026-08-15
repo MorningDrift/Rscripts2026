@@ -1,3 +1,8 @@
+-- ════════════════════════════════════════════════════════════════════
+-- MORNINGDRIFT UI LIBRARY (MDuiLib)
+-- General-Purpose Exploit UI Library for Roblox
+-- ════════════════════════════════════════════════════════════════════
+
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -6,7 +11,7 @@ local HttpService      = game:GetService("HttpService")
 local CoreGui          = game:GetService("CoreGui")
 local LocalPlayer      = Players.LocalPlayer
 
---  Single-Instance Cleanup
+-- ── Single-Instance Cleanup ──────────────────────────────────────────
 if getgenv and getgenv().LIBRARY_CLEANUP then
     pcall(getgenv().LIBRARY_CLEANUP)
 end
@@ -24,7 +29,7 @@ getgenv().LIBRARY_CLEANUP = function()
     Library:Destroy()
 end
 
---  Environment & Gui Parent
+-- ── Environment & Gui Parent ──────────────────────────────────────────
 local parentGui
 if gethui then
     parentGui = gethui()
@@ -46,7 +51,7 @@ pcall(function()
     screenGui.Parent = (parentGui ~= CoreGui and parentGui ~= screenGui) and parentGui or CoreGui
 end)
 
---  Dropdown & Overlay Layer (Root Level for z-index sorting) 
+-- ── Dropdown & Overlay Layer (Root Level for z-index sorting) ─────────
 local overlayLayer = Instance.new("Folder", screenGui)
 overlayLayer.Name = "OverlayLayer"
 
@@ -64,7 +69,22 @@ notifLayout.VerticalAlignment    = Enum.VerticalAlignment.Bottom
 notifLayout.HorizontalAlignment  = Enum.HorizontalAlignment.Right
 notifLayout.Padding              = UDim.new(0, 8)
 
---  Dropdown Outside-Click Management 
+-- ── Tracking Helpers ──────────────────────────────────────────────────
+function Library:TrackConnection(conn)
+    if conn then
+        table.insert(self.Connections, conn)
+    end
+    return conn
+end
+
+function Library:TrackThread(thread)
+    if thread then
+        table.insert(self.Threads, thread)
+    end
+    return thread
+end
+
+-- ── Dropdown Outside-Click Management ───────────────────────────────
 local activeMenuFrame = nil
 local activeCloseMenuFn = nil
 
@@ -82,22 +102,7 @@ Library:TrackConnection(UserInputService.InputBegan:Connect(function(input)
     end
 end))
 
---  Tracking Helpers 
-function Library:TrackConnection(conn)
-    if conn then
-        table.insert(self.Connections, conn)
-    end
-    return conn
-end
-
-function Library:TrackThread(thread)
-    if thread then
-        table.insert(self.Threads, thread)
-    end
-    return thread
-end
-
---  Async Font Loading 
+-- ── Async Font Loading ────────────────────────────────────────────────
 local fontBold, fontMedium, fontSemi
 
 task.spawn(function()
@@ -142,7 +147,7 @@ local function applyFont(inst, fType)
     end
 end
 
---  Theme System 
+-- ── Theme System ──────────────────────────────────────────────────────
 local ThemePresets = {
     ["Dark"] = {
         Accent      = Color3.fromRGB(249, 115, 22),
@@ -240,7 +245,7 @@ function Library:SetTheme(themeInput)
     end
 end
 
---  Tween Helpers 
+-- ── Tween Helpers ─────────────────────────────────────────────────────
 local function tw(inst, duration, style, dir, goals)
     style = style or Enum.EasingStyle.Quart
     dir   = dir   or Enum.EasingDirection.Out
@@ -258,7 +263,7 @@ local function twB(inst, duration, goals)
     return tw(inst, duration, Enum.EasingStyle.Back, Enum.EasingDirection.Out, goals)
 end
 
---  UI Creation Primitives 
+-- ── UI Creation Primitives ───────────────────────────────────────────
 local function corner(parent, radius)
     local c = Instance.new("UICorner", parent)
     c.CornerRadius = UDim.new(0, radius or 6)
@@ -294,7 +299,7 @@ local function label(parent, props)
     return t
 end
 
---  Tooltip Helper 
+-- ── Tooltip Helper ───────────────────────────────────────────────────
 local currentTooltip = nil
 local function attachTooltip(inst, text)
     if not text or text == "" then return end
@@ -342,7 +347,7 @@ local function attachTooltip(inst, text)
     end)
 end
 
---  Safe Dragging Function 
+-- ── Safe Dragging Function ───────────────────────────────────────────
 local function isInteractiveObject(pos)
     local ok, guis = pcall(function() return screenGui:GetGuiObjectsAtPosition(pos.X, pos.Y) end)
     if ok and guis then
@@ -399,7 +404,7 @@ local function makeDraggable(frame, handle, clickCallback)
     end))
 end
 
---  Config Serialization & Management 
+-- ── Config Serialization & Management ───────────────────────────────
 local function serializeValue(val)
     if typeof(val) == "Color3" then
         return { R = val.R, G = val.G, B = val.B }
@@ -482,7 +487,7 @@ function Library:ResetConfig()
     self:SaveConfig()
 end
 
---  Notifications 
+-- ── Notifications ─────────────────────────────────────────────────────
 function Library:Notify(options)
     options = options or {}
     local titleText = options.Title or "Notification"
@@ -572,7 +577,7 @@ function Library:Notify(options)
     end)
 end
 
---  Window Creation 
+-- ── Window Creation ───────────────────────────────────────────────────
 function Library:CreateWindow(options)
     options = options or {}
     local winTitle    = options.Title or "Window"
@@ -1034,7 +1039,7 @@ function Library:CreateWindow(options)
 
             local SectionObj = { Frame = secCard, ElementCount = 0 }
 
-            --  Section:AddToggle 
+            -- ── Section:AddToggle ───────────────────────────────────────
             function SectionObj:AddToggle(toggleOpts)
                 toggleOpts = toggleOpts or {}
                 local nameText = toggleOpts.Name or "Toggle"
@@ -1118,7 +1123,7 @@ function Library:CreateWindow(options)
                 return ToggleObj
             end
 
-            --  Section:AddSlider 
+            -- ── Section:AddSlider ───────────────────────────────────────
             function SectionObj:AddSlider(sliderOpts)
                 sliderOpts = sliderOpts or {}
                 local nameText = sliderOpts.Name or "Slider"
@@ -1259,7 +1264,7 @@ function Library:CreateWindow(options)
                 return SliderObj
             end
 
-            --  Section:AddDropdown 
+            -- ── Section:AddDropdown ─────────────────────────────────────
             function SectionObj:AddDropdown(dropOpts)
                 dropOpts = dropOpts or {}
                 local nameText = dropOpts.Name or "Dropdown"
@@ -1476,7 +1481,7 @@ function Library:CreateWindow(options)
                 return DropdownObj
             end
 
-            --  Section:AddTextBox 
+            -- ── Section:AddTextBox ──────────────────────────────────────
             function SectionObj:AddTextBox(boxOpts)
                 boxOpts = boxOpts or {}
                 local nameText     = boxOpts.Name or "Text Box"
@@ -1568,7 +1573,7 @@ function Library:CreateWindow(options)
                 return TextBoxObj
             end
 
-            --  Section:AddKeybind 
+            -- ── Section:AddKeybind ──────────────────────────────────────
             function SectionObj:AddKeybind(keyOpts)
                 keyOpts = keyOpts or {}
                 local nameText = keyOpts.Name or "Keybind"
@@ -1678,7 +1683,7 @@ function Library:CreateWindow(options)
                 return KeybindObj
             end
 
-            --  Section:AddColorPicker 
+            -- ── Section:AddColorPicker ──────────────────────────────────
             function SectionObj:AddColorPicker(cpOpts)
                 cpOpts = cpOpts or {}
                 local nameText  = cpOpts.Name or "Color Picker"
@@ -1869,7 +1874,7 @@ function Library:CreateWindow(options)
                 return ColorPickerObj
             end
 
-            --  Section:AddButton 
+            -- ── Section:AddButton ───────────────────────────────────────
             function SectionObj:AddButton(btnOpts)
                 btnOpts = btnOpts or {}
                 local nameText = btnOpts.Name or "Button"
@@ -1943,7 +1948,7 @@ function Library:CreateWindow(options)
                 return ButtonObj
             end
 
-            --  Static Display Elements 
+            -- ── Static Display Elements ────────────────────────────────
             function SectionObj:AddLabel(textStr)
                 SectionObj.ElementCount = SectionObj.ElementCount + 1
 
@@ -2195,7 +2200,7 @@ function Library:CreateWindow(options)
     return WindowObj
 end
 
---  Destroy / Cleanup 
+-- ── Destroy / Cleanup ────────────────────────────────────────────────
 function Library:Destroy()
     if self.Unloaded then return end
     self.Unloaded = true

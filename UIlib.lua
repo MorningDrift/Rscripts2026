@@ -1,8 +1,3 @@
--- ════════════════════════════════════════════════════════════════════
--- MORNINGDRIFT UI LIBRARY (MDuiLib)
--- General-Purpose Exploit UI Library for Roblox
--- ════════════════════════════════════════════════════════════════════
-
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -147,10 +142,26 @@ local function applyFont(inst, fType)
     end
 end
 
+-- ── Background Asset ────────────────────────────────────────────────
+local bgAssetId = ""
+task.spawn(function()
+    pcall(function()
+        if getcustomasset and writefile and game.HttpGet then
+            if not (isfile and isfile("MD_Hub_Bg.jpg")) then
+                local d = game:HttpGet("https://wallpapercave.com/wp/wp13409289.jpg")
+                if d and #d > 500 then writefile("MD_Hub_Bg.jpg", d) end
+            end
+            if isfile and isfile("MD_Hub_Bg.jpg") then
+                bgAssetId = getcustomasset("MD_Hub_Bg.jpg")
+            end
+        end
+    end)
+end)
+
 -- ── Theme System ──────────────────────────────────────────────────────
 local ThemePresets = {
     ["Dark"] = {
-        Accent      = Color3.fromRGB(249, 115, 22),
+        Accent      = Color3.fromRGB(20, 20, 20),
         Background  = Color3.fromRGB(10,  11,  14),
         Surface     = Color3.fromRGB(14,  15,  19),
         Panel       = Color3.fromRGB(18,  19,  25),
@@ -278,6 +289,7 @@ local function stroke(parent, thickness, colorKey)
     return s
 end
 
+-- label: base helper (no scaling)
 local function label(parent, props)
     local t = Instance.new("TextLabel", parent)
     t.BackgroundTransparency = 1
@@ -297,6 +309,16 @@ local function label(parent, props)
         t.TextColor3 = props.color or Theme.Text
     end
     return t
+end
+
+-- lbl: 1.3x scaled version matching MD_Hub style
+local function lbl(parent, props)
+    local baseTs = props.ts or 12
+    local scaled = math.floor(baseTs * 1.3 + 0.5)
+    local p2 = {}
+    for k, v in pairs(props) do p2[k] = v end
+    p2.ts = scaled
+    return label(parent, p2)
 end
 
 -- ── Tooltip Helper ───────────────────────────────────────────────────
@@ -592,8 +614,8 @@ function Library:CreateWindow(options)
     end
 
     local MAIN_W, MAIN_H = winSize.X, winSize.Y
-    local TOPBAR_H       = 46
-    local SIDEBAR_W      = 140
+    local TOPBAR_H       = 65
+    local SIDEBAR_W      = 150
 
     local mainFrame = Instance.new("Frame", screenGui)
     mainFrame.Name             = "MainFrame"
@@ -606,6 +628,21 @@ function Library:CreateWindow(options)
     registerTheme(mainFrame, "BackgroundColor3", "Background")
     corner(mainFrame, 8)
     stroke(mainFrame, 1, "Border")
+
+    -- Subtle background texture
+    task.spawn(function()
+        task.wait(0.3)
+        if bgAssetId ~= "" then
+            local bg = Instance.new("ImageLabel", mainFrame)
+            bg.Size                   = UDim2.new(1, 0, 1, 0)
+            bg.BackgroundTransparency = 1
+            bg.Image                  = bgAssetId
+            bg.ScaleType              = Enum.ScaleType.Crop
+            bg.ImageTransparency      = 0.95
+            bg.ZIndex                 = 1
+            registerTheme(bg, "ImageColor3", "Text")
+        end
+    end)
 
     local mainScale = Instance.new("UIScale", mainFrame)
     mainScale.Scale = 0
@@ -691,15 +728,14 @@ function Library:CreateWindow(options)
     brL.VerticalAlignment = Enum.VerticalAlignment.Center
     brL.Padding           = UDim.new(0, 10)
 
-    if winIcon then
-        local iconImg = Instance.new("ImageLabel", brandRow)
-        iconImg.Size                   = UDim2.new(0, 28, 0, 28)
-        iconImg.BackgroundTransparency = 1
-        iconImg.Image                  = winIcon
-        iconImg.LayoutOrder            = 1
-        iconImg.ZIndex                 = 7
-        registerTheme(iconImg, "ImageColor3", "Accent")
-    end
+    -- Always show MD brand icon (like the hub)
+    local mdIconImg = Instance.new("ImageLabel", brandRow)
+    mdIconImg.Size                   = UDim2.new(0, 30, 0, 30)
+    mdIconImg.BackgroundTransparency = 1
+    mdIconImg.Image                  = winIcon or "rbxthumb://type=Asset&id=140295322336049&w=150&h=150"
+    mdIconImg.LayoutOrder            = 1
+    mdIconImg.ZIndex                 = 7
+    corner(mdIconImg, 7)
 
     local titleGroup = Instance.new("Frame", brandRow)
     titleGroup.Size                   = UDim2.new(0, 200, 0, 36)
@@ -727,7 +763,7 @@ function Library:CreateWindow(options)
         z = 7
     })
 
-    -- Control buttons
+    -- Control buttons (settings, minimise, close — matching hub order)
     local ctrlArea = Instance.new("Frame", topBar)
     ctrlArea.Size                   = UDim2.new(0, 96, 1, 0)
     ctrlArea.Position               = UDim2.new(1, -100, 0, 0)
@@ -770,8 +806,30 @@ function Library:CreateWindow(options)
         return btn
     end
 
-    local minimiseBtn = makeIconBtn("rbxassetid://80688800908127", 14)
-    local closeBtn    = makeIconBtn("rbxassetid://110946743687809", 14)
+    local settingsBtn = makeIconBtn("rbxassetid://86579518783109", 20)
+    local minimiseBtn = makeIconBtn("rbxassetid://80688800908127", 20)
+    local closeBtn    = makeIconBtn("rbxassetid://110946743687809", 17)
+
+    -- Minimize: UIScale bounce + hide
+    local miniScale = Instance.new("UIScale", minimiseBtn)
+    miniScale.Scale = 1
+    minimiseBtn.MouseEnter:Connect(function() twB(miniScale, 0.18, { Scale = 1.15 }) end)
+    minimiseBtn.MouseLeave:Connect(function() twQ(miniScale, 0.15, { Scale = 1.0 }) end)
+    local isMinimized = false
+    minimiseBtn.MouseButton1Click:Connect(function()
+        isMinimized = not isMinimized
+        if isMinimized then
+            twQ(mainFrame, 0.25, { Size = UDim2.new(0, MAIN_W, 0, TOPBAR_H) })
+        else
+            twQ(mainFrame, 0.25, { Size = UDim2.new(0, MAIN_W, 0, MAIN_H) })
+        end
+    end)
+
+    -- Close: twB scale-out then destroy
+    closeBtn.MouseButton1Click:Connect(function()
+        twB(mainScale, 0.3, { Scale = 0 })
+        task.delay(0.3, function() pcall(function() mainFrame:Destroy() end) end)
+    end)
 
     -- Sidebar
     local sidebar = Instance.new("Frame", mainFrame)
@@ -802,12 +860,16 @@ function Library:CreateWindow(options)
 
     local sbLayout = Instance.new("UIListLayout", sbScroll)
     sbLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    sbLayout.Padding   = UDim.new(0, 2)
+    sbLayout.Padding   = UDim.new(0, 3)
     local sbPad = Instance.new("UIPadding", sbScroll)
     sbPad.PaddingLeft   = UDim.new(0, 8)
     sbPad.PaddingRight  = UDim.new(0, 8)
-    sbPad.PaddingTop    = UDim.new(0, 8)
-    sbPad.PaddingBottom = UDim.new(0, 8)
+
+    -- Top padding spacer (matches hub)
+    local topPadFrame = Instance.new("Frame", sbScroll)
+    topPadFrame.Size                   = UDim2.new(1, 0, 0, 6)
+    topPadFrame.BackgroundTransparency = 1
+    topPadFrame.LayoutOrder            = -9999
 
     -- Content Bg
     local contentBg = Instance.new("Frame", mainFrame)
@@ -832,8 +894,72 @@ function Library:CreateWindow(options)
     -- Tab Management
     local WindowObj = {
         Tabs = {},
-        CurrentTab = nil
+        CurrentTab = nil,
+        _tabOrder = 0,
+        _settingsTabObj = nil  -- filled once an Appearance tab is auto-created
     }
+
+    -- ── Sidebar helpers exposed on WindowObj ─────────────────────────
+    function WindowObj:AddSectionLabel(text)
+        self._tabOrder = self._tabOrder + 1
+        local f = Instance.new("Frame", sbScroll)
+        f.Size                   = UDim2.new(1, 0, 0, 28)
+        f.BackgroundTransparency = 1
+        f.LayoutOrder            = self._tabOrder
+        f.ZIndex                 = 5
+        local lp = Instance.new("UIPadding", f)
+        lp.PaddingLeft = UDim.new(0, 4)
+        lp.PaddingTop  = UDim.new(0, 8)
+        local t = Instance.new("TextLabel", f)
+        t.Size                   = UDim2.new(1, 0, 1, 0)
+        t.BackgroundTransparency = 1
+        t.Text                   = text
+        applyFont(t, "Bold")
+        t.TextSize               = 12
+        t.TextXAlignment         = Enum.TextXAlignment.Left
+        t.ZIndex                 = 5
+        registerTheme(t, "TextColor3", "TextDim")
+        return f
+    end
+
+    function WindowObj:AddSeparator()
+        self._tabOrder = self._tabOrder + 1
+        local f = Instance.new("Frame", sbScroll)
+        f.Size                   = UDim2.new(1, 0, 0, 8)
+        f.BackgroundTransparency = 1
+        f.BorderSizePixel        = 0
+        f.LayoutOrder            = self._tabOrder
+        f.ZIndex                 = 5
+        local ln = Instance.new("Frame", f)
+        ln.Size             = UDim2.new(1, 0, 0, 1)
+        ln.Position         = UDim2.new(0, 0, 0.5, 0)
+        ln.BorderSizePixel  = 0
+        ln.ZIndex           = 5
+        registerTheme(ln, "BackgroundColor3", "Separator")
+        return f
+    end
+
+    -- Wire settings button → auto-open an Appearance tab
+    settingsBtn.MouseButton1Click:Connect(function()
+        -- Lazily create Appearance tab on first press
+        if not WindowObj._settingsTabObj then
+            WindowObj:AddSeparator()
+            WindowObj:AddSectionLabel("OTHER")
+            local apTab = WindowObj:AddTab({ Name = "Appearance", Icon = "rbxassetid://86579518783109" })
+            WindowObj._settingsTabObj = apTab
+            -- Header inside the appearance tab
+            local apSec = apTab:AddSection("Theme")
+            apSec:AddLabel({ Text = "Theme customisation coming soon." })
+        else
+            -- Already created — just switch to it
+            for _, t in ipairs(WindowObj.Tabs) do
+                if t == WindowObj._settingsTabObj then
+                    selectTab(t)
+                    break
+                end
+            end
+        end
+    end)
 
     local function syncIndicator(instant)
         if WindowObj.CurrentTab and WindowObj.CurrentTab.Btn and WindowObj.CurrentTab.Btn.Parent then
@@ -906,13 +1032,15 @@ function Library:CreateWindow(options)
         local tabName = tabOptions.Name or "Tab"
         local tabIcon = tabOptions.Icon
 
+        WindowObj._tabOrder = WindowObj._tabOrder + 1
         local btn = Instance.new("TextButton", sbScroll)
         btn.Name                   = "Nav_" .. tabName
-        btn.Size                   = UDim2.new(1, 0, 0, 38)
+        btn.Size                   = UDim2.new(1, 0, 0, 30)
         btn.BackgroundTransparency = 1
         btn.BackgroundColor3       = Theme.Elevated
         btn.BorderSizePixel        = 0
         btn.Text                   = ""
+        btn.LayoutOrder            = WindowObj._tabOrder
         btn.ZIndex                 = 6
         corner(btn, 5)
 
@@ -923,8 +1051,8 @@ function Library:CreateWindow(options)
             if string.sub(tabIcon, 1, 10) == "rbxassetid" or string.sub(tabIcon, 1, 4) == "http" or tonumber(tabIcon) then
                 local assetId = (string.sub(tabIcon, 1, 10) == "rbxassetid" or string.sub(tabIcon, 1, 4) == "http") and tabIcon or ("rbxassetid://" .. tabIcon)
                 iconInst = Instance.new("ImageLabel", btn)
-                iconInst.Size                   = UDim2.new(0, 16, 0, 16)
-                iconInst.Position               = UDim2.new(0, 10, 0.5, -8)
+                iconInst.Size                   = UDim2.new(0, 22, 0, 22)
+                iconInst.Position               = UDim2.new(0, 6, 0.5, -12)
                 iconInst.BackgroundTransparency = 1
                 iconInst.Image                  = assetId
                 iconInst.ZIndex                 = 7
@@ -939,7 +1067,7 @@ function Library:CreateWindow(options)
         nameLbl.BackgroundTransparency = 1
         nameLbl.Text                   = tabName
         applyFont(nameLbl, "Bold")
-        nameLbl.TextSize               = 14
+        nameLbl.TextSize               = 16
         nameLbl.TextXAlignment         = Enum.TextXAlignment.Left
         nameLbl.ZIndex                 = 7
         registerTheme(nameLbl, "TextColor3", "TextMid")
@@ -961,9 +1089,9 @@ function Library:CreateWindow(options)
         pageLayout.Padding   = UDim.new(0, 10)
 
         local pagePad = Instance.new("UIPadding", page)
-        pagePad.PaddingTop    = UDim.new(0, 14)
-        pagePad.PaddingBottom = UDim.new(0, 14)
-        pagePad.PaddingLeft   = UDim.new(0, 14)
+        pagePad.PaddingTop    = UDim.new(0, 18)
+        pagePad.PaddingBottom = UDim.new(0, 18)
+        pagePad.PaddingLeft   = UDim.new(0, 18)
         pagePad.PaddingRight  = UDim.new(0, 14)
 
         local TabObj = {

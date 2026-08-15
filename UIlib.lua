@@ -1,4 +1,4 @@
-print("testt")
+print("loltest")
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -99,32 +99,57 @@ Library:TrackConnection(UserInputService.InputBegan:Connect(function(input)
 end))
 
 --  Async Font Loading 
-local fontBold, fontMedium, fontSemi
+local fontBold, fontMedium, fontSemi = nil, nil, nil
+local fontRegistry = {}
 
-task.spawn(function()
-    local function loadFont(url, fileName, weight)
-        local customFont = nil
-        pcall(function()
-            if writefile and isfile and getcustomasset and game.HttpGet then
-                if not isfile(fileName) then
-                    local d = game:HttpGet(url)
-                    if d and #d > 500 then writefile(fileName, d) end
-                end
-                if isfile(fileName) then
-                    local assetId = getcustomasset(fileName)
-                    customFont = Font.new(assetId, weight or Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-                end
+local function refreshAllFonts()
+    for _, item in ipairs(fontRegistry) do
+        if item.Inst and item.Inst.Parent then
+            local fType = item.Type
+            local targetFont = fontBold
+            if fType == "Medium" then
+                targetFont = fontMedium or fontBold
+            elseif fType == "Semi" or fType == "SemiBold" then
+                targetFont = fontSemi or fontBold
             end
-        end)
-        return customFont
+            if targetFont then
+                pcall(function() item.Inst.FontFace = targetFont end)
+            end
+        end
     end
+end
 
-    fontBold   = loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-Bold.ttf",     "MDHub_Kanit_Bold.ttf",     Enum.FontWeight.Bold)
-    fontMedium = loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-Medium.ttf",   "MDHub_Kanit_Medium.ttf",   Enum.FontWeight.Medium)
-    fontSemi   = loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-SemiBold.ttf", "MDHub_Kanit_SemiBold.ttf", Enum.FontWeight.SemiBold)
-end)
+local function loadFont(url, fileName, weight)
+    pcall(function()
+        if not (writefile and isfile and getcustomasset and game.HttpGet) then return end
+        if not isfile(fileName) then
+            local d = game:HttpGet(url)
+            if not d or #d < 500 then return end
+            writefile(fileName, d)
+        end
+        local assetId = nil
+        for _ = 1, 20 do
+            task.wait(0.1)
+            local id = getcustomasset(fileName)
+            if id and #id > 5 then assetId = id; break end
+        end
+        if not assetId then return end
+        local f = Font.new(assetId, weight or Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+        if weight == Enum.FontWeight.Bold     then fontBold   = f end
+        if weight == Enum.FontWeight.Medium   then fontMedium = f end
+        if weight == Enum.FontWeight.SemiBold then fontSemi   = f end
+        refreshAllFonts()
+    end)
+end
+
+coroutine.wrap(function()
+    loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-Bold.ttf",     "MDHub_Kanit_Bold.ttf",     Enum.FontWeight.Bold)
+    loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-Medium.ttf",   "MDHub_Kanit_Medium.ttf",   Enum.FontWeight.Medium)
+    loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-SemiBold.ttf", "MDHub_Kanit_SemiBold.ttf", Enum.FontWeight.SemiBold)
+end)()
 
 local function applyFont(inst, fType)
+    table.insert(fontRegistry, { Inst = inst, Type = fType })
     local targetFont = fontBold
     local fallbackEnum = Enum.Font.GothamBold
 
@@ -162,7 +187,7 @@ end)
 --  Theme System 
 local ThemePresets = {
     ["Dark"] = {
-        Accent      = Color3.fromRGB(20, 20, 20),
+        Accent      = Color3.fromRGB(249, 115, 22),
         Background  = Color3.fromRGB(10,  11,  14),
         Surface     = Color3.fromRGB(14,  15,  19),
         Panel       = Color3.fromRGB(18,  19,  25),
@@ -173,6 +198,7 @@ local ThemePresets = {
         TextMid     = Color3.fromRGB(160, 162, 175),
         TextDim     = Color3.fromRGB(95,  98,  112),
         AccentDim   = Color3.fromRGB(180, 75,  10),
+        TextureColor= Color3.fromRGB(255, 255, 255),
     },
     ["Light"] = {
         Accent      = Color3.fromRGB(249, 115, 22),
@@ -186,6 +212,7 @@ local ThemePresets = {
         TextMid     = Color3.fromRGB(75,  80,  96),
         TextDim     = Color3.fromRGB(128, 133, 149),
         AccentDim   = Color3.fromRGB(200, 90,  10),
+        TextureColor= Color3.fromRGB(0,   0,   0),
     },
     ["Midnight"] = {
         Accent      = Color3.fromRGB(139, 92,  246),
@@ -199,6 +226,7 @@ local ThemePresets = {
         TextMid     = Color3.fromRGB(156, 149, 186),
         TextDim     = Color3.fromRGB(90,  84,  117),
         AccentDim   = Color3.fromRGB(95,  55,  180),
+        TextureColor= Color3.fromRGB(255, 255, 255),
     },
     ["Ocean"] = {
         Accent      = Color3.fromRGB(6,   182, 212),
@@ -212,6 +240,7 @@ local ThemePresets = {
         TextMid     = Color3.fromRGB(136, 189, 199),
         TextDim     = Color3.fromRGB(76,  117, 130),
         AccentDim   = Color3.fromRGB(2,   125, 150),
+        TextureColor= Color3.fromRGB(255, 255, 255),
     }
 }
 
@@ -232,11 +261,14 @@ end
 local function updateTheme(key, color)
     Theme[key] = color
     if themeRegistry[key] then
+        local alive = {}
         for _, e in ipairs(themeRegistry[key]) do
             if e.Inst and e.Inst.Parent then
                 pcall(function() e.Inst[e.Prop] = color end)
+                table.insert(alive, e)
             end
         end
+        themeRegistry[key] = alive
     end
 end
 
@@ -326,8 +358,10 @@ end
 local currentTooltip = nil
 local function attachTooltip(inst, text)
     if not text or text == "" then return end
+    local moveConn = nil
     inst.MouseEnter:Connect(function()
         if currentTooltip then pcall(function() currentTooltip:Destroy() end) end
+        if moveConn then pcall(function() moveConn:Disconnect() end); moveConn = nil end
         local mLoc = UserInputService:GetMouseLocation()
         local tip = Instance.new("Frame", overlayLayer)
         tip.Size                   = UDim2.new(0, 0, 0, 22)
@@ -354,15 +388,16 @@ local function attachTooltip(inst, text)
         tLbl.AutomaticSize = Enum.AutomaticSize.X
         currentTooltip = tip
 
-        Library:TrackConnection(UserInputService.InputChanged:Connect(function(i)
+        moveConn = UserInputService.InputChanged:Connect(function(i)
             if currentTooltip == tip and i.UserInputType == Enum.UserInputType.MouseMovement then
                 local loc = UserInputService:GetMouseLocation()
                 tip.Position = UDim2.new(0, loc.X + 12, 0, loc.Y + 12)
             end
-        end))
+        end)
     end)
 
     inst.MouseLeave:Connect(function()
+        if moveConn then pcall(function() moveConn:Disconnect() end); moveConn = nil end
         if currentTooltip then
             pcall(function() currentTooltip:Destroy() end)
             currentTooltip = nil
@@ -519,7 +554,8 @@ function Library:Notify(options)
     local iconId = options.Icon
 
     local toast = Instance.new("Frame", notificationHolder)
-    toast.Size                    = UDim2.new(1, 0, 0, 68)
+    toast.Size                    = UDim2.new(1, 0, 0, 0)
+    toast.AutomaticSize           = Enum.AutomaticSize.Y
     toast.BorderSizePixel         = 0
     toast.ClipsDescendants        = true
     toast.BackgroundTransparency  = 1
@@ -531,7 +567,7 @@ function Library:Notify(options)
     pad.PaddingLeft   = UDim.new(0, 12)
     pad.PaddingRight  = UDim.new(0, 12)
     pad.PaddingTop    = UDim.new(0, 8)
-    pad.PaddingBottom = UDim.new(0, 8)
+    pad.PaddingBottom = UDim.new(0, 12)
 
     local iconOffset = 0
     if iconId then
@@ -553,15 +589,16 @@ function Library:Notify(options)
         theme = "Text"
     })
 
-    label(toast, {
-        size = UDim2.new(1, -iconOffset, 0, 30),
-        pos = UDim2.new(0, iconOffset, 0, 20),
+    local cLbl = label(toast, {
+        size = UDim2.new(1, -iconOffset, 0, 0),
+        pos = UDim2.new(0, iconOffset, 0, 22),
         text = contentText,
         fontType = "Medium",
         ts = 11,
         theme = "TextDim",
         wrap = true
     })
+    cLbl.AutomaticSize = Enum.AutomaticSize.Y
 
     local closeBtn = Instance.new("TextButton", toast)
     closeBtn.Size                   = UDim2.new(0, 16, 0, 16)
@@ -821,7 +858,7 @@ function Library:CreateWindow(options)
     miniIcon.Active           = true
     miniIcon.Visible          = false
     miniIcon.ZIndex           = 200
-    miniIcon.BackgroundColor3 = Color3.fromRGB(12, 13, 17)
+    registerTheme(miniIcon, "BackgroundColor3", "Surface")
     miniIcon.ClipsDescendants = true
     corner(miniIcon, 25)
 
@@ -908,6 +945,17 @@ function Library:CreateWindow(options)
 
     --  Close Confirmation Modal 
     local CW_W, CW_H = 320, 152
+
+    local modalBackdrop = Instance.new("TextButton", overlayLayer)
+    modalBackdrop.Name                   = "MD_ModalBackdrop"
+    modalBackdrop.Size                   = UDim2.new(1, 0, 1, 0)
+    modalBackdrop.BackgroundTransparency = 1
+    modalBackdrop.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
+    modalBackdrop.BorderSizePixel        = 0
+    modalBackdrop.Visible                = false
+    modalBackdrop.ZIndex                 = 4999
+    modalBackdrop.Text                   = ""
+
     local closeWin = Instance.new("Frame", overlayLayer)
     closeWin.Name             = "MD_CloseWindow"
     closeWin.Size             = UDim2.new(0, CW_W, 0, CW_H)
@@ -924,6 +972,8 @@ function Library:CreateWindow(options)
     local function openCloseWin()
         if cwOpen then return end
         cwOpen = true
+        modalBackdrop.Visible = true
+        twQ(modalBackdrop, 0.2, { BackgroundTransparency = 0.5 })
         closeWin.Size     = UDim2.new(0, CW_W, 0, 0)
         closeWin.Position = UDim2.new(0.5, -CW_W/2, 0.5, 0)
         closeWin.Visible  = true
@@ -933,8 +983,12 @@ function Library:CreateWindow(options)
     local function closeCloseWin()
         if not cwOpen then return end
         cwOpen = false
+        twQ(modalBackdrop, 0.2, { BackgroundTransparency = 1 })
         twQ(closeWin, 0.2, { Size = UDim2.new(0, CW_W, 0, 0), Position = UDim2.new(0.5, -CW_W/2, 0.5, 0) })
-        task.delay(0.22, function() closeWin.Visible = false end)
+        task.delay(0.22, function()
+            closeWin.Visible = false
+            modalBackdrop.Visible = false
+        end)
     end
 
     local cwHead = Instance.new("Frame", closeWin)
@@ -1182,274 +1236,278 @@ function Library:CreateWindow(options)
         task.delay(0.05, function() syncIndicator(instant) end)
     end
 
-    -- Wire settings button → auto-open an Appearance tab (placed AFTER selectTab definition)
-    settingsBtn.MouseButton1Click:Connect(function()
-        if not WindowObj._settingsTabObj then
-            WindowObj:AddSeparator()
-            WindowObj:AddSectionLabel("OTHER")
-            local apTab = WindowObj:AddTab({ Name = "Appearance", Icon = "rbxassetid://86579518783109" })
-            WindowObj._settingsTabObj = apTab
+    local function buildAppearanceTab()
+        if WindowObj._settingsTabObj then return end
+        WindowObj:AddSeparator()
+        WindowObj:AddSectionLabel("OTHER")
+        local apTab = WindowObj:AddTab({ Name = "Appearance", Icon = "rbxassetid://86579518783109" })
+        WindowObj._settingsTabObj = apTab
 
-            local appearancePage = apTab.Page
+        local appearancePage = apTab.Page
 
-            -- Header
-            local apHeader = Instance.new("Frame", appearancePage)
-            apHeader.Size = UDim2.new(1, 0, 0, 44)
-            apHeader.BackgroundTransparency = 1
-            apHeader.LayoutOrder = 0
-            lbl(apHeader, { size = UDim2.new(1, 0, 0, 24), pos = UDim2.new(0, 0, 0, 0), text = "Appearance", fontType = "Bold", ts = 18, theme = "Text", z = 5 })
-            lbl(apHeader, { size = UDim2.new(1, 0, 0, 16), pos = UDim2.new(0, 0, 0, 26), text = "Customize the colors", fontType = "Medium", ts = 11, theme = "TextDim", z = 5 })
+        -- Header
+        local apHeader = Instance.new("Frame", appearancePage)
+        apHeader.Size = UDim2.new(1, 0, 0, 44)
+        apHeader.BackgroundTransparency = 1
+        apHeader.LayoutOrder = 0
+        lbl(apHeader, { size = UDim2.new(1, 0, 0, 24), pos = UDim2.new(0, 0, 0, 0), text = "Appearance", fontType = "Bold", ts = 18, theme = "Text", z = 5 })
+        lbl(apHeader, { size = UDim2.new(1, 0, 0, 16), pos = UDim2.new(0, 0, 0, 26), text = "Customize the colors", fontType = "Medium", ts = 11, theme = "TextDim", z = 5 })
 
-            -- Color group segmented selector
-            local apSegFrame = Instance.new("Frame", appearancePage)
-            apSegFrame.Size = UDim2.new(1, 0, 0, 32)
-            apSegFrame.BorderSizePixel = 0
-            apSegFrame.LayoutOrder = 1
-            apSegFrame.ZIndex = 5
-            registerTheme(apSegFrame, "BackgroundColor3", "Panel")
-            corner(apSegFrame, 6)
-            local apSegStroke = Instance.new("UIStroke", apSegFrame)
-            apSegStroke.Thickness = 1
-            apSegStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            registerTheme(apSegStroke, "Color", "Border")
+        -- Color group segmented selector
+        local apSegFrame = Instance.new("Frame", appearancePage)
+        apSegFrame.Size = UDim2.new(1, 0, 0, 32)
+        apSegFrame.BorderSizePixel = 0
+        apSegFrame.LayoutOrder = 1
+        apSegFrame.ZIndex = 5
+        registerTheme(apSegFrame, "BackgroundColor3", "Panel")
+        corner(apSegFrame, 6)
+        local apSegStroke = Instance.new("UIStroke", apSegFrame)
+        apSegStroke.Thickness = 1
+        apSegStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        registerTheme(apSegStroke, "Color", "Border")
 
-            local apSegInner = Instance.new("Frame", apSegFrame)
-            apSegInner.Size = UDim2.new(1, -4, 1, -4)
-            apSegInner.Position = UDim2.new(0, 2, 0, 2)
-            apSegInner.BackgroundTransparency = 1
-            apSegInner.ZIndex = 6
+        local apSegInner = Instance.new("Frame", apSegFrame)
+        apSegInner.Size = UDim2.new(1, -4, 1, -4)
+        apSegInner.Position = UDim2.new(0, 2, 0, 2)
+        apSegInner.BackgroundTransparency = 1
+        apSegInner.ZIndex = 6
 
-            local apSegLayout = Instance.new("UIListLayout", apSegInner)
-            apSegLayout.FillDirection = Enum.FillDirection.Horizontal
-            apSegLayout.Padding = UDim.new(0, 2)
-            apSegLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+        local apSegLayout = Instance.new("UIListLayout", apSegInner)
+        apSegLayout.FillDirection = Enum.FillDirection.Horizontal
+        apSegLayout.Padding = UDim.new(0, 2)
+        apSegLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
-            local activeGroup = "Accent"
-            local groupBtns   = {}
-            local apGroups = {
-                { Key = "Accent",     Label = "Accent" },
-                { Key = "Background", Label = "Background" },
-                { Key = "Panel",      Label = "Panels" },
-                { Key = "Text",       Label = "Text" },
-            }
+        local activeGroup = "Accent"
+        local groupBtns   = {}
+        local apGroups = {
+            { Key = "Accent",     Label = "Accent" },
+            { Key = "Background", Label = "Background" },
+            { Key = "Panel",      Label = "Panels" },
+            { Key = "Text",       Label = "Text" },
+        }
 
-            local sliderRed, sliderGreen, sliderBlue
-            local hexLabel, previewSwatch
+        local sliderRed, sliderGreen, sliderBlue
+        local hexLabel, previewSwatch
 
-            local function toHex(c)
-                return string.format("#%02X%02X%02X", math.floor(c.R*255), math.floor(c.G*255), math.floor(c.B*255))
-            end
-
-            local function updateSegBtns(key)
-                for k, b in pairs(groupBtns) do
-                    if k == key then
-                        b.BackgroundTransparency = 0
-                        b.BackgroundColor3 = Theme.Elevated
-                        twQ(b, 0.12, { TextColor3 = Theme.Text })
-                    else
-                        b.BackgroundTransparency = 1
-                        twQ(b, 0.12, { TextColor3 = Theme.TextDim })
-                    end
-                end
-            end
-
-            local function updateSlidersFromGroup(key)
-                activeGroup = key
-                local c = Theme[key] or Color3.new(1, 1, 1)
-                local r, g, b = math.floor(c.R*255), math.floor(c.G*255), math.floor(c.B*255)
-                if sliderRed   then sliderRed.setValue(r)   end
-                if sliderGreen then sliderGreen.setValue(g) end
-                if sliderBlue  then sliderBlue.setValue(b)  end
-                if previewSwatch then previewSwatch.BackgroundColor3 = c end
-                if hexLabel then hexLabel.Text = toHex(c) end
-                updateSegBtns(key)
-            end
-
-            for _, g in ipairs(apGroups) do
-                local gb = Instance.new("TextButton", apSegInner)
-                gb.Size = UDim2.new(0.25, -2, 1, 0)
-                gb.BackgroundTransparency = 1
-                gb.BackgroundColor3 = Theme.Elevated
-                gb.BorderSizePixel = 0
-                gb.Text = g.Label
-                applyFont(gb, "Bold")
-                gb.TextSize = 13
-                gb.ZIndex = 7
-                registerTheme(gb, "TextColor3", "TextDim")
-                corner(gb, 4)
-                groupBtns[g.Key] = gb
-                gb.MouseButton1Click:Connect(function() updateSlidersFromGroup(g.Key) end)
-            end
-
-            -- Preview + hex row
-            local apPreviewRow = Instance.new("Frame", appearancePage)
-            apPreviewRow.Size = UDim2.new(1, 0, 0, 28)
-            apPreviewRow.BackgroundTransparency = 1
-            apPreviewRow.LayoutOrder = 2
-            apPreviewRow.ZIndex = 5
-
-            lbl(apPreviewRow, { size = UDim2.new(1, -100, 1, 0), pos = UDim2.new(0, 0, 0, 0), text = "colors", fontType = "Bold", ts = 9, theme = "TextDim", z = 5 })
-
-            previewSwatch = Instance.new("Frame", apPreviewRow)
-            previewSwatch.Size = UDim2.new(0, 18, 0, 18)
-            previewSwatch.Position = UDim2.new(1, -80, 0.5, -9)
-            previewSwatch.BorderSizePixel = 0
-            previewSwatch.ZIndex = 6
-            previewSwatch.BackgroundColor3 = Theme.Accent
-            corner(previewSwatch, 4)
-
-            hexLabel = lbl(apPreviewRow, { size = UDim2.new(0, 58, 1, 0), pos = UDim2.new(1, -58, 0, 0), text = toHex(Theme.Accent), fontType = "Medium", ts = 10, theme = "TextDim", ax = Enum.TextXAlignment.Right, z = 5 })
-
-            -- Sliders container
-            local apSlidersFrame = Instance.new("Frame", appearancePage)
-            apSlidersFrame.Size = UDim2.new(1, 0, 0, 130)
-            apSlidersFrame.BorderSizePixel = 0
-            apSlidersFrame.LayoutOrder = 3
-            apSlidersFrame.ZIndex = 5
-            registerTheme(apSlidersFrame, "BackgroundColor3", "Panel")
-            corner(apSlidersFrame, 6)
-            local apSF_stroke = Instance.new("UIStroke", apSlidersFrame)
-            apSF_stroke.Thickness = 1
-            apSF_stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            registerTheme(apSF_stroke, "Color", "Border")
-            local apSFPad = Instance.new("UIPadding", apSlidersFrame)
-            apSFPad.PaddingLeft = UDim.new(0, 14)
-            apSFPad.PaddingRight = UDim.new(0, 14)
-            apSFPad.PaddingTop = UDim.new(0, 8)
-            apSFPad.PaddingBottom = UDim.new(0, 8)
-
-            local function makeColorSlider(parent, labelText, posY, initVal, trackColor, onChange)
-                local row = Instance.new("Frame", parent)
-                row.Size = UDim2.new(1, 0, 0, 34)
-                row.Position = UDim2.new(0, 0, 0, posY)
-                row.BackgroundTransparency = 1
-                row.ZIndex = 6
-
-                lbl(row, { size = UDim2.new(0, 14, 0, 14), pos = UDim2.new(0, 0, 0, 0), text = labelText, fontType = "Bold", ts = 11, color = trackColor, z = 7 })
-                local valLbl = lbl(row, { size = UDim2.new(0, 28, 0, 14), pos = UDim2.new(1, -28, 0, 0), text = tostring(initVal), fontType = "Medium", ts = 10, theme = "TextDim", ax = Enum.TextXAlignment.Right, z = 7 })
-
-                local trackBg = Instance.new("TextButton", row)
-                trackBg.Size = UDim2.new(1, 0, 0, 6)
-                trackBg.Position = UDim2.new(0, 0, 0, 18)
-                trackBg.BorderSizePixel = 0
-                trackBg.Text = ""
-                trackBg.ZIndex = 7
-                registerTheme(trackBg, "BackgroundColor3", "Elevated")
-                corner(trackBg, 3)
-
-                local fill = Instance.new("Frame", trackBg)
-                fill.Size = UDim2.new(initVal/255, 0, 1, 0)
-                fill.BorderSizePixel = 0
-                fill.BackgroundColor3 = trackColor
-                fill.ZIndex = 8
-                corner(fill, 3)
-
-                local thumb = Instance.new("Frame", trackBg)
-                thumb.Size = UDim2.new(0, 11, 0, 11)
-                thumb.AnchorPoint = Vector2.new(0.5, 0.5)
-                thumb.Position = UDim2.new(initVal/255, 0, 0.5, 0)
-                thumb.BackgroundColor3 = Color3.fromRGB(225, 225, 235)
-                thumb.BorderSizePixel = 0
-                thumb.ZIndex = 9
-                corner(thumb, 6)
-
-                local sliding = false
-                local obj = { value = initVal }
-
-                local function update(px)
-                    local rel = math.clamp((px - trackBg.AbsolutePosition.X) / trackBg.AbsoluteSize.X, 0, 1)
-                    local v = math.floor(rel * 255)
-                    obj.value = v
-                    fill.Size = UDim2.new(rel, 0, 1, 0)
-                    thumb.Position = UDim2.new(rel, 0, 0.5, 0)
-                    valLbl.Text = tostring(v)
-                    onChange(v)
-                end
-                obj.setValue = function(v)
-                    obj.value = v
-                    local rel = math.clamp(v/255, 0, 1)
-                    fill.Size = UDim2.new(rel, 0, 1, 0)
-                    thumb.Position = UDim2.new(rel, 0, 0.5, 0)
-                    valLbl.Text = tostring(v)
-                end
-
-                Library:TrackConnection(trackBg.InputBegan:Connect(function(i)
-                    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-                        sliding = true
-                        update(i.Position.X)
-                    end
-                end))
-
-                Library:TrackConnection(UserInputService.InputChanged:Connect(function(i)
-                    if sliding and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-                        update(i.Position.X)
-                    end
-                end))
-
-                Library:TrackConnection(UserInputService.InputEnded:Connect(function(i)
-                    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-                        sliding = false
-                    end
-                end))
-
-                return obj
-            end
-
-            local function applyRGB()
-                local r = sliderRed   and sliderRed.value   or 0
-                local g = sliderGreen and sliderGreen.value or 0
-                local b = sliderBlue  and sliderBlue.value  or 0
-                local c = Color3.fromRGB(r, g, b)
-                updateTheme(activeGroup, c)
-                if previewSwatch then previewSwatch.BackgroundColor3 = c end
-                if hexLabel then hexLabel.Text = toHex(c) end
-                if activeGroup == "Accent" and miniIcon then miniIcon.BackgroundColor3 = c end
-            end
-
-            sliderRed   = makeColorSlider(apSlidersFrame, "R", 2,  math.floor(Theme.Accent.R*255), Color3.fromRGB(220, 70, 70),  function() applyRGB() end)
-            sliderGreen = makeColorSlider(apSlidersFrame, "G", 38, math.floor(Theme.Accent.G*255), Color3.fromRGB(50, 180, 110), function() applyRGB() end)
-            sliderBlue  = makeColorSlider(apSlidersFrame, "B", 74, math.floor(Theme.Accent.B*255), Color3.fromRGB(70, 130, 220), function() applyRGB() end)
-
-            -- Save button
-            local apSaveFrame = Instance.new("Frame", appearancePage)
-            apSaveFrame.Size = UDim2.new(1, 0, 0, 36)
-            apSaveFrame.BackgroundTransparency = 1
-            apSaveFrame.LayoutOrder = 4
-
-            local saveBtn = Instance.new("TextButton", apSaveFrame)
-            saveBtn.Size = UDim2.new(0, 126, 0, 32)
-            saveBtn.Position = UDim2.new(0.74, 0, 0.5, -16)
-            saveBtn.BorderSizePixel = 0
-            saveBtn.Text = "     Save Changes"
-            applyFont(saveBtn, "Bold")
-            saveBtn.TextSize = 15
-            saveBtn.ZIndex = 6
-            registerTheme(saveBtn, "BackgroundColor3", "Accent")
-            registerTheme(saveBtn, "TextColor3", "Text")
-            corner(saveBtn, 5)
-
-            local saveIcon = Instance.new("ImageLabel", saveBtn)
-            saveIcon.Size = UDim2.new(0, 14, 0, 14)
-            saveIcon.Position = UDim2.new(0, 10, 0.5, -7)
-            saveIcon.BackgroundTransparency = 1
-            saveIcon.Image = "rbxassetid://124051774666561"
-            saveIcon.ZIndex = 7
-            registerTheme(saveIcon, "ImageColor3", "Text")
-
-            saveBtn.MouseEnter:Connect(function() twQ(saveBtn, 0.12, { BackgroundColor3 = Color3.fromRGB(230, 95, 10) }) end)
-            saveBtn.MouseLeave:Connect(function() twQ(saveBtn, 0.12, { BackgroundColor3 = Theme.Accent }) end)
-            saveBtn.MouseButton1Down:Connect(function() twQ(saveBtn, 0.07, { BackgroundColor3 = Theme.AccentDim }) end)
-            saveBtn.MouseButton1Up:Connect(function() twQ(saveBtn, 0.12, { BackgroundColor3 = Theme.Accent }) end)
-            saveBtn.MouseButton1Click:Connect(function()
-                self:SaveConfig()
-                saveBtn.Text = "     Saved"
-                task.delay(1.2, function() saveBtn.Text = "  Save Changes" end)
-            end)
-
-            updateSlidersFromGroup("Accent")
+        local function toHex(c)
+            return string.format("#%02X%02X%02X", math.floor(c.R*255), math.floor(c.G*255), math.floor(c.B*255))
         end
 
-        selectTab(WindowObj._settingsTabObj)
+        local function updateSegBtns(key)
+            for k, b in pairs(groupBtns) do
+                if k == key then
+                    b.BackgroundTransparency = 0
+                    b.BackgroundColor3 = Theme.Elevated
+                    twQ(b, 0.12, { TextColor3 = Theme.Text })
+                else
+                    b.BackgroundTransparency = 1
+                    twQ(b, 0.12, { TextColor3 = Theme.TextDim })
+                end
+            end
+        end
+
+        local function updateSlidersFromGroup(key)
+            activeGroup = key
+            local c = Theme[key] or Color3.new(1, 1, 1)
+            local r, g, b = math.floor(c.R*255), math.floor(c.G*255), math.floor(c.B*255)
+            if sliderRed   then sliderRed.setValue(r)   end
+            if sliderGreen then sliderGreen.setValue(g) end
+            if sliderBlue  then sliderBlue.setValue(b)  end
+            if previewSwatch then previewSwatch.BackgroundColor3 = c end
+            if hexLabel then hexLabel.Text = toHex(c) end
+            updateSegBtns(key)
+        end
+
+        for _, g in ipairs(apGroups) do
+            local gb = Instance.new("TextButton", apSegInner)
+            gb.Size = UDim2.new(0.25, -2, 1, 0)
+            gb.BackgroundTransparency = 1
+            gb.BackgroundColor3 = Theme.Elevated
+            gb.BorderSizePixel = 0
+            gb.Text = g.Label
+            applyFont(gb, "Bold")
+            gb.TextSize = 13
+            gb.ZIndex = 7
+            registerTheme(gb, "TextColor3", "TextDim")
+            corner(gb, 4)
+            groupBtns[g.Key] = gb
+            gb.MouseButton1Click:Connect(function() updateSlidersFromGroup(g.Key) end)
+        end
+
+        -- Preview + hex row
+        local apPreviewRow = Instance.new("Frame", appearancePage)
+        apPreviewRow.Size = UDim2.new(1, 0, 0, 28)
+        apPreviewRow.BackgroundTransparency = 1
+        apPreviewRow.LayoutOrder = 2
+        apPreviewRow.ZIndex = 5
+
+        lbl(apPreviewRow, { size = UDim2.new(1, -100, 1, 0), pos = UDim2.new(0, 0, 0, 0), text = "colors", fontType = "Bold", ts = 9, theme = "TextDim", z = 5 })
+
+        previewSwatch = Instance.new("Frame", apPreviewRow)
+        previewSwatch.Size = UDim2.new(0, 18, 0, 18)
+        previewSwatch.Position = UDim2.new(1, -80, 0.5, -9)
+        previewSwatch.BorderSizePixel = 0
+        previewSwatch.ZIndex = 6
+        previewSwatch.BackgroundColor3 = Theme.Accent
+        corner(previewSwatch, 4)
+
+        hexLabel = lbl(apPreviewRow, { size = UDim2.new(0, 58, 1, 0), pos = UDim2.new(1, -58, 0, 0), text = toHex(Theme.Accent), fontType = "Medium", ts = 10, theme = "TextDim", ax = Enum.TextXAlignment.Right, z = 5 })
+
+        -- Sliders container
+        local apSlidersFrame = Instance.new("Frame", appearancePage)
+        apSlidersFrame.Size = UDim2.new(1, 0, 0, 130)
+        apSlidersFrame.BorderSizePixel = 0
+        apSlidersFrame.LayoutOrder = 3
+        apSlidersFrame.ZIndex = 5
+        registerTheme(apSlidersFrame, "BackgroundColor3", "Panel")
+        corner(apSlidersFrame, 6)
+        local apSF_stroke = Instance.new("UIStroke", apSlidersFrame)
+        apSF_stroke.Thickness = 1
+        apSF_stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        registerTheme(apSF_stroke, "Color", "Border")
+        local apSFPad = Instance.new("UIPadding", apSlidersFrame)
+        apSFPad.PaddingLeft = UDim.new(0, 14)
+        apSFPad.PaddingRight = UDim.new(0, 14)
+        apSFPad.PaddingTop = UDim.new(0, 8)
+        apSFPad.PaddingBottom = UDim.new(0, 8)
+
+        local function makeColorSlider(parent, labelText, posY, initVal, trackColor, onChange)
+            local row = Instance.new("Frame", parent)
+            row.Size = UDim2.new(1, 0, 0, 34)
+            row.Position = UDim2.new(0, 0, 0, posY)
+            row.BackgroundTransparency = 1
+            row.ZIndex = 6
+
+            lbl(row, { size = UDim2.new(0, 14, 0, 14), pos = UDim2.new(0, 0, 0, 0), text = labelText, fontType = "Bold", ts = 11, color = trackColor, z = 7 })
+            local valLbl = lbl(row, { size = UDim2.new(0, 28, 0, 14), pos = UDim2.new(1, -28, 0, 0), text = tostring(initVal), fontType = "Medium", ts = 10, theme = "TextDim", ax = Enum.TextXAlignment.Right, z = 7 })
+
+            local trackBg = Instance.new("TextButton", row)
+            trackBg.Size = UDim2.new(1, 0, 0, 6)
+            trackBg.Position = UDim2.new(0, 0, 0, 18)
+            trackBg.BorderSizePixel = 0
+            trackBg.Text = ""
+            trackBg.ZIndex = 7
+            registerTheme(trackBg, "BackgroundColor3", "Elevated")
+            corner(trackBg, 3)
+
+            local fill = Instance.new("Frame", trackBg)
+            fill.Size = UDim2.new(initVal/255, 0, 1, 0)
+            fill.BorderSizePixel = 0
+            fill.BackgroundColor3 = trackColor
+            fill.ZIndex = 8
+            corner(fill, 3)
+
+            local thumb = Instance.new("Frame", trackBg)
+            thumb.Size = UDim2.new(0, 11, 0, 11)
+            thumb.AnchorPoint = Vector2.new(0.5, 0.5)
+            thumb.Position = UDim2.new(initVal/255, 0, 0.5, 0)
+            thumb.BackgroundColor3 = Color3.fromRGB(225, 225, 235)
+            thumb.BorderSizePixel = 0
+            thumb.ZIndex = 9
+            corner(thumb, 6)
+
+            local sliding = false
+            local obj = { value = initVal }
+
+            local function update(px)
+                local rel = math.clamp((px - trackBg.AbsolutePosition.X) / trackBg.AbsoluteSize.X, 0, 1)
+                local v = math.floor(rel * 255)
+                obj.value = v
+                fill.Size = UDim2.new(rel, 0, 1, 0)
+                thumb.Position = UDim2.new(rel, 0, 0.5, 0)
+                valLbl.Text = tostring(v)
+                onChange(v)
+            end
+            obj.setValue = function(v)
+                obj.value = v
+                local rel = math.clamp(v/255, 0, 1)
+                fill.Size = UDim2.new(rel, 0, 1, 0)
+                thumb.Position = UDim2.new(rel, 0, 0.5, 0)
+                valLbl.Text = tostring(v)
+            end
+
+            Library:TrackConnection(trackBg.InputBegan:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                    sliding = true
+                    update(i.Position.X)
+                end
+            end))
+
+            Library:TrackConnection(UserInputService.InputChanged:Connect(function(i)
+                if sliding and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+                    update(i.Position.X)
+                end
+            end))
+
+            Library:TrackConnection(UserInputService.InputEnded:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                    sliding = false
+                end
+            end))
+
+            return obj
+        end
+
+        local function applyRGB()
+            local r = sliderRed   and sliderRed.value   or 0
+            local g = sliderGreen and sliderGreen.value or 0
+            local b = sliderBlue  and sliderBlue.value  or 0
+            local c = Color3.fromRGB(r, g, b)
+            updateTheme(activeGroup, c)
+            if previewSwatch then previewSwatch.BackgroundColor3 = c end
+            if hexLabel then hexLabel.Text = toHex(c) end
+            if activeGroup == "Accent" and miniIcon then miniIcon.BackgroundColor3 = c end
+        end
+
+        sliderRed   = makeColorSlider(apSlidersFrame, "R", 2,  math.floor(Theme.Accent.R*255), Color3.fromRGB(220, 70, 70),  function() applyRGB() end)
+        sliderGreen = makeColorSlider(apSlidersFrame, "G", 38, math.floor(Theme.Accent.G*255), Color3.fromRGB(50, 180, 110), function() applyRGB() end)
+        sliderBlue  = makeColorSlider(apSlidersFrame, "B", 74, math.floor(Theme.Accent.B*255), Color3.fromRGB(70, 130, 220), function() applyRGB() end)
+
+        -- Save button
+        local apSaveFrame = Instance.new("Frame", appearancePage)
+        apSaveFrame.Size = UDim2.new(1, 0, 0, 36)
+        apSaveFrame.BackgroundTransparency = 1
+        apSaveFrame.LayoutOrder = 4
+
+        local saveBtn = Instance.new("TextButton", apSaveFrame)
+        saveBtn.Size = UDim2.new(0, 126, 0, 32)
+        saveBtn.Position = UDim2.new(0.74, 0, 0.5, -16)
+        saveBtn.BorderSizePixel = 0
+        saveBtn.Text = "     Save Changes"
+        applyFont(saveBtn, "Bold")
+        saveBtn.TextSize = 15
+        saveBtn.ZIndex = 6
+        registerTheme(saveBtn, "BackgroundColor3", "Accent")
+        registerTheme(saveBtn, "TextColor3", "Text")
+        corner(saveBtn, 5)
+
+        local saveIcon = Instance.new("ImageLabel", saveBtn)
+        saveIcon.Size = UDim2.new(0, 14, 0, 14)
+        saveIcon.Position = UDim2.new(0, 10, 0.5, -7)
+        saveIcon.BackgroundTransparency = 1
+        saveIcon.Image = "rbxassetid://124051774666561"
+        saveIcon.ZIndex = 7
+        registerTheme(saveIcon, "ImageColor3", "Text")
+
+        saveBtn.MouseEnter:Connect(function() twQ(saveBtn, 0.12, { BackgroundColor3 = Color3.fromRGB(230, 95, 10) }) end)
+        saveBtn.MouseLeave:Connect(function() twQ(saveBtn, 0.12, { BackgroundColor3 = Theme.Accent }) end)
+        saveBtn.MouseButton1Down:Connect(function() twQ(saveBtn, 0.07, { BackgroundColor3 = Theme.AccentDim }) end)
+        saveBtn.MouseButton1Up:Connect(function() twQ(saveBtn, 0.12, { BackgroundColor3 = Theme.Accent }) end)
+        saveBtn.MouseButton1Click:Connect(function()
+            self:SaveConfig()
+            saveBtn.Text = "     Saved"
+            task.delay(1.2, function() saveBtn.Text = "  Save Changes" end)
+        end)
+
+        updateSlidersFromGroup("Accent")
+    end
+
+    buildAppearanceTab()
+
+    settingsBtn.MouseButton1Click:Connect(function()
+        if WindowObj._settingsTabObj then
+            selectTab(WindowObj._settingsTabObj)
+        end
     end)
 
     local function syncIndicator(instant)
@@ -1819,7 +1877,7 @@ function Library:CreateWindow(options)
                 local function updateSlider(px, skipCallback)
                     local rel = math.clamp((px - trackBg.AbsolutePosition.X) / trackBg.AbsoluteSize.X, 0, 1)
                     local raw = minVal + rel * (maxVal - minVal)
-                    local stepped = math.floor(raw / step + 0.5) * step
+                    local stepped = math.floor((raw - minVal) / step + 0.5) * step + minVal
                     stepped = math.clamp(stepped, minVal, maxVal)
 
                     currVal = stepped
@@ -1833,12 +1891,12 @@ function Library:CreateWindow(options)
                     if not skipCallback and not Library.IsLoadingConfig then
                         pcall(callback, currVal)
                     end
-                    Library:SaveConfig()
                 end
 
                 function SliderObj:Set(val, skipCallback)
-                    val = math.clamp(val, minVal, maxVal)
-                    currVal = val
+                    val = math.clamp(val or minVal, minVal, maxVal)
+                    local stepped = math.floor((val - minVal) / step + 0.5) * step + minVal
+                    currVal = math.clamp(stepped, minVal, maxVal)
                     if flag then Library.Flags[flag] = currVal end
                     local newRel = math.clamp((currVal - minVal) / (maxVal - minVal), 0, 1)
                     fill.Size = UDim2.new(newRel, 0, 1, 0)
@@ -1875,7 +1933,10 @@ function Library:CreateWindow(options)
 
                 Library:TrackConnection(UserInputService.InputEnded:Connect(function(i)
                     if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-                        sliding = false
+                        if sliding then
+                            sliding = false
+                            Library:SaveConfig()
+                        end
                     end
                 end))
 
@@ -2023,9 +2084,18 @@ function Library:CreateWindow(options)
                     local btnAbsPos = dropBtn.AbsolutePosition
                     local btnAbsSz  = dropBtn.AbsoluteSize
 
+                    local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+                    local mWidth = btnAbsSz.X
+                    local mHeight = math.min(#options * 28 + 8, 140)
+                    local posX = math.clamp(btnAbsPos.X, 4, math.max(4, vp.X - mWidth - 4))
+                    local posY = btnAbsPos.Y + btnAbsSz.Y + 4
+                    if posY + mHeight > vp.Y - 10 then
+                        posY = math.max(4, btnAbsPos.Y - mHeight - 4)
+                    end
+
                     menuFrame = Instance.new("Frame", overlayLayer)
-                    menuFrame.Size                   = UDim2.new(0, btnAbsSz.X, 0, math.min(#options * 28 + 8, 140))
-                    menuFrame.Position               = UDim2.new(0, btnAbsPos.X, 0, btnAbsPos.Y + btnAbsSz.Y + 4)
+                    menuFrame.Size                   = UDim2.new(0, mWidth, 0, mHeight)
+                    menuFrame.Position               = UDim2.new(0, posX, 0, posY)
                     menuFrame.BorderSizePixel        = 0
                     menuFrame.ZIndex                 = 2000
                     registerTheme(menuFrame, "BackgroundColor3", "Elevated")
@@ -2156,6 +2226,11 @@ function Library:CreateWindow(options)
                 local currText = default
                 if flag then Library.Flags[flag] = currText end
 
+                box:GetPropertyChangedSignal("Text"):Connect(function()
+                    currText = box.Text
+                    if flag then Library.Flags[flag] = currText end
+                end)
+
                 local TextBoxObj = { Flag = flag, Default = default }
 
                 function TextBoxObj:Set(val, skipCallback)
@@ -2248,27 +2323,7 @@ function Library:CreateWindow(options)
 
                 local KeybindObj = { Flag = flag, Default = default }
 
-                function KeybindObj:Set(key, skipCallback)
-                    currKey = key
-                    bindLbl.Text = typeof(currKey) == "EnumItem" and currKey.Name or tostring(currKey)
-                    if flag then Library.Flags[flag] = currKey end
-                    Library:SaveConfig()
-                end
-
-                function KeybindObj:Get()
-                    return currKey
-                end
-
-                function KeybindObj:Destroy()
-                    container:Destroy()
-                end
-
-                bindBtn.MouseButton1Click:Connect(function()
-                    isListening = true
-                    bindLbl.Text = "Press key..."
-                end)
-
-                Library:TrackConnection(UserInputService.InputBegan:Connect(function(input, gpe)
+                local beganConn = UserInputService.InputBegan:Connect(function(input, gpe)
                     if isListening then
                         if input.UserInputType == Enum.UserInputType.Keyboard then
                             if input.KeyCode == Enum.KeyCode.Escape then
@@ -2290,13 +2345,37 @@ function Library:CreateWindow(options)
                             pcall(callback, true)
                         end
                     end
-                end))
+                end)
+                Library:TrackConnection(beganConn)
 
-                Library:TrackConnection(UserInputService.InputEnded:Connect(function(input, gpe)
+                local endedConn = UserInputService.InputEnded:Connect(function(input, gpe)
                     if not gpe and mode == "Hold" and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == currKey then
                         pcall(callback, false)
                     end
-                end))
+                end)
+                Library:TrackConnection(endedConn)
+
+                function KeybindObj:Set(key, skipCallback)
+                    currKey = key
+                    bindLbl.Text = typeof(currKey) == "EnumItem" and currKey.Name or tostring(currKey)
+                    if flag then Library.Flags[flag] = currKey end
+                    Library:SaveConfig()
+                end
+
+                function KeybindObj:Get()
+                    return currKey
+                end
+
+                function KeybindObj:Destroy()
+                    pcall(function() beganConn:Disconnect() end)
+                    pcall(function() endedConn:Disconnect() end)
+                    container:Destroy()
+                end
+
+                bindBtn.MouseButton1Click:Connect(function()
+                    isListening = true
+                    bindLbl.Text = "Press key..."
+                end)
 
                 table.insert(Library.Elements, KeybindObj)
                 return KeybindObj
@@ -2378,9 +2457,19 @@ function Library:CreateWindow(options)
                     pickerOpen = true
 
                     local sAbsPos = swatch.AbsolutePosition
+                    local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+                    local pWidth = 180
+                    local pHeight = hasAlpha and 180 or 150
+
+                    local posX = math.clamp(sAbsPos.X - 144, 4, math.max(4, vp.X - pWidth - 4))
+                    local posY = sAbsPos.Y + 26
+                    if posY + pHeight > vp.Y - 10 then
+                        posY = math.max(4, sAbsPos.Y - pHeight - 4)
+                    end
+
                     pickerFrame = Instance.new("Frame", overlayLayer)
-                    pickerFrame.Size                   = UDim2.new(0, 180, 0, 150)
-                    pickerFrame.Position               = UDim2.new(0, sAbsPos.X - 144, 0, sAbsPos.Y + 26)
+                    pickerFrame.Size                   = UDim2.new(0, pWidth, 0, pHeight)
+                    pickerFrame.Position               = UDim2.new(0, posX, 0, posY)
                     pickerFrame.BorderSizePixel        = 0
                     pickerFrame.ZIndex                 = 2000
                     registerTheme(pickerFrame, "BackgroundColor3", "Elevated")
@@ -2399,7 +2488,7 @@ function Library:CreateWindow(options)
 
                     local hexBox = Instance.new("TextBox", pickerFrame)
                     hexBox.Size                   = UDim2.new(1, 0, 0, 22)
-                    hexBox.Position               = UDim2.new(0, 0, 0, 94)
+                    hexBox.Position               = UDim2.new(0, 0, 0, hasAlpha and 124 or 94)
                     hexBox.BorderSizePixel        = 0
                     hexBox.Text                   = string.format("#%02X%02X%02X", r, g, b)
                     applyFont(hexBox, "Medium")
@@ -2415,12 +2504,12 @@ function Library:CreateWindow(options)
                             local hr, hg, hb = str:sub(1, 2), str:sub(3, 4), str:sub(5, 6)
                             local nr, ng, nb = tonumber(hr, 16), tonumber(hg, 16), tonumber(hb, 16)
                             if nr and ng and nb then
-                                ColorPickerObj:Set(Color3.fromRGB(nr, ng, nb))
+                                ColorPickerObj:Set(Color3.fromRGB(nr, ng, nb), currAlpha)
                             end
                         end
                     end)
 
-                    local function makeRgbSlider(posY, letter, initial, colorKey, onVal)
+                    local function makeRgbSlider(posY, letter, initial, maxVal, colorKey, onVal)
                         local sRow = Instance.new("Frame", pickerFrame)
                         sRow.Size                   = UDim2.new(1, 0, 0, 24)
                         sRow.Position               = UDim2.new(0, 0, 0, posY)
@@ -2436,7 +2525,7 @@ function Library:CreateWindow(options)
                         corner(tTrack, 3)
 
                         local tFill = Instance.new("Frame", tTrack)
-                        tFill.Size                   = UDim2.new(initial / 255, 0, 1, 0)
+                        tFill.Size                   = UDim2.new(initial / maxVal, 0, 1, 0)
                         tFill.BorderSizePixel        = 0
                         tFill.BackgroundColor3       = colorKey
                         corner(tFill, 3)
@@ -2444,7 +2533,7 @@ function Library:CreateWindow(options)
                         local sliding = false
                         local function update(px)
                             local rel = math.clamp((px - tTrack.AbsolutePosition.X) / tTrack.AbsoluteSize.X, 0, 1)
-                            local v = math.floor(rel * 255)
+                            local v = math.floor(rel * maxVal)
                             tFill.Size = UDim2.new(rel, 0, 1, 0)
                             onVal(v)
                             hexBox.Text = string.format("#%02X%02X%02X", r, g, b)
@@ -2468,9 +2557,13 @@ function Library:CreateWindow(options)
                         end))
                     end
 
-                    makeRgbSlider(4,  "R", r, Color3.fromRGB(240, 80, 80), function(v) r = v; ColorPickerObj:Set(Color3.fromRGB(r, g, b)) end)
-                    makeRgbSlider(34, "G", g, Color3.fromRGB(80, 220, 120), function(v) g = v; ColorPickerObj:Set(Color3.fromRGB(r, g, b)) end)
-                    makeRgbSlider(64, "B", b, Color3.fromRGB(80, 140, 240), function(v) b = v; ColorPickerObj:Set(Color3.fromRGB(r, g, b)) end)
+                    makeRgbSlider(4,  "R", r, 255, Color3.fromRGB(240, 80, 80), function(v) r = v; ColorPickerObj:Set(Color3.fromRGB(r, g, b), currAlpha) end)
+                    makeRgbSlider(34, "G", g, 255, Color3.fromRGB(80, 220, 120), function(v) g = v; ColorPickerObj:Set(Color3.fromRGB(r, g, b), currAlpha) end)
+                    makeRgbSlider(64, "B", b, 255, Color3.fromRGB(80, 140, 240), function(v) b = v; ColorPickerObj:Set(Color3.fromRGB(r, g, b), currAlpha) end)
+
+                    if hasAlpha then
+                        makeRgbSlider(94, "A", math.floor(currAlpha * 100), 100, Color3.fromRGB(180, 180, 180), function(v) currAlpha = v / 100; ColorPickerObj:Set(Color3.fromRGB(r, g, b), currAlpha) end)
+                    end
 
                     local closeP = Instance.new("TextButton", pickerFrame)
                     closeP.Size                   = UDim2.new(1, 0, 0, 22)

@@ -6,7 +6,7 @@ local HttpService      = game:GetService("HttpService")
 local CoreGui          = game:GetService("CoreGui")
 local LocalPlayer      = Players.LocalPlayer
 
--- ── Single-Instance Cleanup ──────────────────────────────────────────
+--  Single-Instance Cleanup 
 if getgenv and getgenv().LIBRARY_CLEANUP then
     pcall(getgenv().LIBRARY_CLEANUP)
 end
@@ -24,7 +24,7 @@ getgenv().LIBRARY_CLEANUP = function()
     Library:Destroy()
 end
 
--- ── Environment & Gui Parent ──────────────────────────────────────────
+--  Environment & Gui Parent 
 local parentGui
 if gethui then
     parentGui = gethui()
@@ -46,7 +46,7 @@ pcall(function()
     screenGui.Parent = (parentGui ~= CoreGui and parentGui ~= screenGui) and parentGui or CoreGui
 end)
 
--- ── Dropdown & Overlay Layer (Root Level for z-index sorting) ─────────
+--  Dropdown & Overlay Layer (Root Level for z-index sorting) 
 local overlayLayer = Instance.new("Folder", screenGui)
 overlayLayer.Name = "OverlayLayer"
 
@@ -64,7 +64,7 @@ notifLayout.VerticalAlignment    = Enum.VerticalAlignment.Bottom
 notifLayout.HorizontalAlignment  = Enum.HorizontalAlignment.Right
 notifLayout.Padding              = UDim.new(0, 8)
 
--- ── Tracking Helpers ──────────────────────────────────────────────────
+--  Tracking Helpers 
 function Library:TrackConnection(conn)
     if conn then
         table.insert(self.Connections, conn)
@@ -79,7 +79,7 @@ function Library:TrackThread(thread)
     return thread
 end
 
--- ── Dropdown Outside-Click Management ───────────────────────────────
+--  Dropdown Outside-Click Management 
 local activeMenuFrame = nil
 local activeCloseMenuFn = nil
 
@@ -97,7 +97,7 @@ Library:TrackConnection(UserInputService.InputBegan:Connect(function(input)
     end
 end))
 
--- ── Async Font Loading ────────────────────────────────────────────────
+--  Async Font Loading 
 local fontBold, fontMedium, fontSemi
 
 task.spawn(function()
@@ -142,7 +142,7 @@ local function applyFont(inst, fType)
     end
 end
 
--- ── Background Asset ────────────────────────────────────────────────
+--  Background Asset 
 local bgAssetId = ""
 task.spawn(function()
     pcall(function()
@@ -158,7 +158,7 @@ task.spawn(function()
     end)
 end)
 
--- ── Theme System ──────────────────────────────────────────────────────
+--  Theme System 
 local ThemePresets = {
     ["Dark"] = {
         Accent      = Color3.fromRGB(20, 20, 20),
@@ -256,7 +256,7 @@ function Library:SetTheme(themeInput)
     end
 end
 
--- ── Tween Helpers ─────────────────────────────────────────────────────
+--  Tween Helpers 
 local function tw(inst, duration, style, dir, goals)
     style = style or Enum.EasingStyle.Quart
     dir   = dir   or Enum.EasingDirection.Out
@@ -274,7 +274,7 @@ local function twB(inst, duration, goals)
     return tw(inst, duration, Enum.EasingStyle.Back, Enum.EasingDirection.Out, goals)
 end
 
--- ── UI Creation Primitives ───────────────────────────────────────────
+--  UI Creation Primitives 
 local function corner(parent, radius)
     local c = Instance.new("UICorner", parent)
     c.CornerRadius = UDim.new(0, radius or 6)
@@ -321,7 +321,7 @@ local function lbl(parent, props)
     return label(parent, p2)
 end
 
--- ── Tooltip Helper ───────────────────────────────────────────────────
+--  Tooltip Helper 
 local currentTooltip = nil
 local function attachTooltip(inst, text)
     if not text or text == "" then return end
@@ -369,7 +369,7 @@ local function attachTooltip(inst, text)
     end)
 end
 
--- ── Safe Dragging Function ───────────────────────────────────────────
+--  Safe Dragging Function 
 local function isInteractiveObject(pos)
     local ok, guis = pcall(function() return screenGui:GetGuiObjectsAtPosition(pos.X, pos.Y) end)
     if ok and guis then
@@ -426,7 +426,7 @@ local function makeDraggable(frame, handle, clickCallback)
     end))
 end
 
--- ── Config Serialization & Management ───────────────────────────────
+--  Config Serialization & Management 
 local function serializeValue(val)
     if typeof(val) == "Color3" then
         return { R = val.R, G = val.G, B = val.B }
@@ -509,7 +509,7 @@ function Library:ResetConfig()
     self:SaveConfig()
 end
 
--- ── Notifications ─────────────────────────────────────────────────────
+--  Notifications 
 function Library:Notify(options)
     options = options or {}
     local titleText = options.Title or "Notification"
@@ -599,7 +599,7 @@ function Library:Notify(options)
     end)
 end
 
--- ── Window Creation ───────────────────────────────────────────────────
+--  Window Creation 
 function Library:CreateWindow(options)
     options = options or {}
     local winTitle    = options.Title or "Window"
@@ -748,7 +748,7 @@ function Library:CreateWindow(options)
         pos = UDim2.new(0, 0, 0, 1),
         text = winTitle,
         fontType = "Bold",
-        ts = 15,
+        ts = 17,
         theme = "Text",
         z = 7
     })
@@ -758,7 +758,7 @@ function Library:CreateWindow(options)
         pos = UDim2.new(0, 0, 0, 20),
         text = winSubTitle,
         fontType = "Medium",
-        ts = 11,
+        ts = 13,
         theme = "TextDim",
         z = 7
     })
@@ -810,25 +810,202 @@ function Library:CreateWindow(options)
     local minimiseBtn = makeIconBtn("rbxassetid://80688800908127", 20)
     local closeBtn    = makeIconBtn("rbxassetid://110946743687809", 17)
 
-    -- Minimize: UIScale bounce + hide
-    local miniScale = Instance.new("UIScale", minimiseBtn)
-    miniScale.Scale = 1
-    minimiseBtn.MouseEnter:Connect(function() twB(miniScale, 0.18, { Scale = 1.15 }) end)
-    minimiseBtn.MouseLeave:Connect(function() twQ(miniScale, 0.15, { Scale = 1.0 }) end)
-    local isMinimized = false
-    minimiseBtn.MouseButton1Click:Connect(function()
-        isMinimized = not isMinimized
-        if isMinimized then
-            twQ(mainFrame, 0.25, { Size = UDim2.new(0, MAIN_W, 0, TOPBAR_H) })
-        else
-            twQ(mainFrame, 0.25, { Size = UDim2.new(0, MAIN_W, 0, MAIN_H) })
+    --  Minimized Floating Circle Icon 
+    local miniIcon = Instance.new("ImageButton", screenGui)
+    miniIcon.Name             = "MD_MinimizedIcon"
+    miniIcon.Size             = UDim2.new(0, 50, 0, 50)
+    miniIcon.Position         = UDim2.new(0.5, 0, 0.5, 0)
+    miniIcon.AnchorPoint      = Vector2.new(0.5, 0.5)
+    miniIcon.BorderSizePixel  = 0
+    miniIcon.Active           = true
+    miniIcon.Visible          = false
+    miniIcon.ZIndex           = 200
+    miniIcon.BackgroundColor3 = Color3.fromRGB(12, 13, 17)
+    miniIcon.ClipsDescendants = true
+    corner(miniIcon, 25)
+
+    local miniSt = Instance.new("UIStroke", miniIcon)
+    miniSt.Thickness       = 3.5
+    miniSt.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    miniSt.Color           = Color3.fromRGB(255, 255, 255)
+
+    local miniGrad = Instance.new("UIGradient", miniSt)
+    miniGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(255, 90,  0)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 200, 0)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(255, 90,  0)),
+    })
+
+    local gradConn = RunService.RenderStepped:Connect(function()
+        if miniIcon and miniIcon.Parent and miniIcon.Visible then
+            miniGrad.Rotation = (tick() * 160) % 360
         end
     end)
+    Library:TrackConnection(gradConn)
 
-    -- Close: twB scale-out then destroy
+    local miniImg = Instance.new("ImageLabel", miniIcon)
+    miniImg.Size                   = UDim2.new(1, 0, 1, 0)
+    miniImg.Position               = UDim2.new(0, 0, 0, 0)
+    miniImg.BackgroundTransparency = 1
+    miniImg.Image                  = "rbxassetid://77044087750639"
+    miniImg.ZIndex                 = 201
+    corner(miniImg, 25)
+
+    local miniIconScale = Instance.new("UIScale", miniIcon)
+    miniIconScale.Scale = 1.0
+
+    miniIcon.MouseEnter:Connect(function()
+        if miniIcon.Visible and miniIconScale.Scale >= 0.9 then twQ(miniIconScale, 0.15, { Scale = 1.08 }) end
+    end)
+    miniIcon.MouseLeave:Connect(function()
+        if miniIcon.Visible and miniIconScale.Scale >= 0.9 then twQ(miniIconScale, 0.15, { Scale = 1.0 }) end
+    end)
+
+    makeDraggable(miniIcon, miniIcon)
+
+    local isAnimating = false
+
+    minimiseBtn.MouseButton1Click:Connect(function()
+        if isAnimating then return end
+        isAnimating = true
+
+        miniIcon.Position = mainFrame.Position
+        miniIconScale.Scale = 0
+        miniIcon.Rotation = -360
+        miniIcon.Visible = true
+
+        local twMainScale = twQ(mainScale, 0.3, { Scale = 0 })
+        local twMiniScale = twQ(miniIconScale, 0.3, { Scale = 1.0 })
+        local twMiniRot   = twQ(miniIcon, 0.3, { Rotation = 0 })
+
+        twMainScale.Completed:Once(function()
+            mainFrame.Visible = false
+            mainScale.Scale   = 1.0
+            isAnimating       = false
+        end)
+    end)
+
+    miniIcon.MouseButton1Click:Connect(function()
+        if isAnimating then return end
+        isAnimating = true
+
+        mainFrame.Position = miniIcon.Position
+        mainScale.Scale    = 0
+        mainFrame.Visible  = true
+
+        local twMainScale = twQ(mainScale, 0.3, { Scale = 1.0 })
+        local twMiniScale = twQ(miniIconScale, 0.3, { Scale = 0 })
+        local twMiniRot   = twQ(miniIcon, 0.3, { Rotation = 360 })
+
+        twMainScale.Completed:Once(function()
+            miniIcon.Visible  = false
+            miniIconScale.Scale = 1.0
+            miniIcon.Rotation = 0
+            isAnimating       = false
+        end)
+    end)
+
+    --  Close Confirmation Modal 
+    local CW_W, CW_H = 320, 152
+    local closeWin = Instance.new("Frame", overlayLayer)
+    closeWin.Name             = "MD_CloseWindow"
+    closeWin.Size             = UDim2.new(0, CW_W, 0, CW_H)
+    closeWin.Position         = UDim2.new(0.5, -CW_W/2, 0.5, -CW_H/2)
+    closeWin.BorderSizePixel  = 0
+    closeWin.Active           = true
+    closeWin.Visible          = false
+    closeWin.ZIndex           = 5000
+    registerTheme(closeWin, "BackgroundColor3", "Background")
+    corner(closeWin, 8)
+    stroke(closeWin, 1, "Border")
+
+    local cwOpen = false
+    local function openCloseWin()
+        if cwOpen then return end
+        cwOpen = true
+        closeWin.Size     = UDim2.new(0, CW_W, 0, 0)
+        closeWin.Position = UDim2.new(0.5, -CW_W/2, 0.5, 0)
+        closeWin.Visible  = true
+        twB(closeWin, 0.3, { Size = UDim2.new(0, CW_W, 0, CW_H), Position = UDim2.new(0.5, -CW_W/2, 0.5, -CW_H/2) })
+    end
+
+    local function closeCloseWin()
+        if not cwOpen then return end
+        cwOpen = false
+        twQ(closeWin, 0.2, { Size = UDim2.new(0, CW_W, 0, 0), Position = UDim2.new(0.5, -CW_W/2, 0.5, 0) })
+        task.delay(0.22, function() closeWin.Visible = false end)
+    end
+
+    local cwHead = Instance.new("Frame", closeWin)
+    cwHead.Size                   = UDim2.new(1, 0, 0, 36)
+    cwHead.BackgroundTransparency = 1
+    cwHead.BorderSizePixel        = 0
+    cwHead.ZIndex                 = 5001
+    label(cwHead, {
+        size = UDim2.new(1, -24, 1, 0),
+        pos = UDim2.new(0, 14, 0, 0),
+        text = "Close " .. winTitle .. "?",
+        fontType = "Bold",
+        ts = 13,
+        theme = "Text",
+        z = 5002
+    })
+    makeDraggable(closeWin, cwHead)
+
+    label(closeWin, {
+        size = UDim2.new(1, -28, 0, 34),
+        pos = UDim2.new(0, 14, 0, 40),
+        text = "Are you sure you want to unload the script UI?",
+        fontType = "Medium",
+        ts = 11,
+        theme = "TextDim",
+        wrap = true,
+        z = 5002
+    })
+
+    local cwBtnRow = Instance.new("Frame", closeWin)
+    cwBtnRow.Size                   = UDim2.new(1, -28, 0, 32)
+    cwBtnRow.Position               = UDim2.new(0, 14, 1, -44)
+    cwBtnRow.BackgroundTransparency = 1
+    cwBtnRow.ZIndex                 = 5002
+
+    local cancelBtn = Instance.new("TextButton", cwBtnRow)
+    cancelBtn.Size                   = UDim2.new(0.47, 0, 1, 0)
+    cancelBtn.Position               = UDim2.new(0, 0, 0, 0)
+    cancelBtn.BorderSizePixel        = 0
+    cancelBtn.Text                   = "Cancel"
+    applyFont(cancelBtn, "Bold")
+    cancelBtn.TextSize               = 14
+    cancelBtn.ZIndex                 = 5003
+    registerTheme(cancelBtn, "BackgroundColor3", "Panel")
+    registerTheme(cancelBtn, "TextColor3", "TextMid")
+    corner(cancelBtn, 5)
+
+    cancelBtn.MouseEnter:Connect(function() twQ(cancelBtn, 0.1, { BackgroundColor3 = Theme.Elevated }) end)
+    cancelBtn.MouseLeave:Connect(function() twQ(cancelBtn, 0.1, { BackgroundColor3 = Theme.Panel }) end)
+    cancelBtn.MouseButton1Click:Connect(function() closeCloseWin() end)
+
+    local unloadBtn = Instance.new("TextButton", cwBtnRow)
+    unloadBtn.Size                   = UDim2.new(0.53, -6, 1, 0)
+    unloadBtn.Position               = UDim2.new(0.47, 6, 0, 0)
+    unloadBtn.BorderSizePixel        = 0
+    unloadBtn.Text                   = "Unload"
+    applyFont(unloadBtn, "Bold")
+    unloadBtn.TextSize               = 14
+    unloadBtn.ZIndex                 = 5003
+    registerTheme(unloadBtn, "BackgroundColor3", "Accent")
+    registerTheme(unloadBtn, "TextColor3", "Text")
+    corner(unloadBtn, 5)
+
+    unloadBtn.MouseEnter:Connect(function() twQ(unloadBtn, 0.1, { BackgroundColor3 = Color3.fromRGB(230, 95, 10) }) end)
+    unloadBtn.MouseLeave:Connect(function() twQ(unloadBtn, 0.1, { BackgroundColor3 = Theme.Accent }) end)
+    unloadBtn.MouseButton1Click:Connect(function()
+        closeCloseWin()
+        self:Destroy()
+    end)
+
     closeBtn.MouseButton1Click:Connect(function()
-        twB(mainScale, 0.3, { Scale = 0 })
-        task.delay(0.3, function() pcall(function() mainFrame:Destroy() end) end)
+        openCloseWin()
     end)
 
     -- Sidebar
@@ -899,7 +1076,7 @@ function Library:CreateWindow(options)
         _settingsTabObj = nil  -- filled once an Appearance tab is auto-created
     }
 
-    -- ── Sidebar helpers exposed on WindowObj ─────────────────────────
+    --  Sidebar helpers exposed on WindowObj 
     function WindowObj:AddSectionLabel(text)
         self._tabOrder = self._tabOrder + 1
         local f = Instance.new("Frame", sbScroll)
@@ -939,26 +1116,339 @@ function Library:CreateWindow(options)
         return f
     end
 
-    -- Wire settings button → auto-open an Appearance tab
+    local function syncIndicator(instant)
+        if WindowObj.CurrentTab and WindowObj.CurrentTab.Btn and WindowObj.CurrentTab.Btn.Parent then
+            local btnY = WindowObj.CurrentTab.Btn.AbsolutePosition.Y
+            local sbY  = sidebar.AbsolutePosition.Y
+            if btnY > 10 and sbY > 10 then
+                local relY = btnY - sbY + 7
+                local targetPos = UDim2.new(0, 4, 0, relY)
+                if instant then
+                    slidingIndicator.Position = targetPos
+                else
+                    twQ(slidingIndicator, 0.22, { Position = targetPos })
+                end
+            end
+        end
+    end
+
+    Library:TrackConnection(sbScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+        syncIndicator(true)
+    end))
+
+    local function selectTab(tabObj, instant)
+        for _, t in ipairs(WindowObj.Tabs) do
+            if t ~= tabObj then
+                t.Page.Visible               = false
+                t.Btn.BackgroundTransparency = 1
+                twQ(t.Btn, 0.15, { TextColor3 = Theme.TextMid })
+                if t.IconInst then
+                    if t.IconInst:IsA("ImageLabel") then
+                        twQ(t.IconInst, 0.15, { ImageColor3 = Theme.TextDim })
+                    else
+                        twQ(t.IconInst, 0.15, { TextColor3 = Theme.TextDim })
+                    end
+                end
+            end
+        end
+
+        tabObj.Page.Visible               = true
+        tabObj.Btn.BackgroundTransparency = 0
+        tabObj.Btn.BackgroundColor3       = Theme.Elevated
+
+        if instant then
+            tabObj.Btn.TextColor3 = Theme.Text
+            if tabObj.IconInst then
+                if tabObj.IconInst:IsA("ImageLabel") then
+                    tabObj.IconInst.ImageColor3 = Theme.Accent
+                else
+                    tabObj.IconInst.TextColor3 = Theme.Accent
+                end
+            end
+        else
+            twQ(tabObj.Btn, 0.18, { TextColor3 = Theme.Text })
+            if tabObj.IconInst then
+                if tabObj.IconInst:IsA("ImageLabel") then
+                    twQ(tabObj.IconInst, 0.18, { ImageColor3 = Theme.Accent })
+                else
+                    twQ(tabObj.IconInst, 0.18, { TextColor3 = Theme.Accent })
+                end
+            end
+        end
+
+        WindowObj.CurrentTab = tabObj
+        task.defer(function() syncIndicator(instant) end)
+        task.delay(0.05, function() syncIndicator(instant) end)
+    end
+
+    -- Wire settings button → auto-open an Appearance tab (placed AFTER selectTab definition)
     settingsBtn.MouseButton1Click:Connect(function()
-        -- Lazily create Appearance tab on first press
         if not WindowObj._settingsTabObj then
             WindowObj:AddSeparator()
             WindowObj:AddSectionLabel("OTHER")
             local apTab = WindowObj:AddTab({ Name = "Appearance", Icon = "rbxassetid://86579518783109" })
             WindowObj._settingsTabObj = apTab
-            -- Header inside the appearance tab
-            local apSec = apTab:AddSection("Theme")
-            apSec:AddLabel({ Text = "Theme customisation coming soon." })
-        else
-            -- Already created — just switch to it
-            for _, t in ipairs(WindowObj.Tabs) do
-                if t == WindowObj._settingsTabObj then
-                    selectTab(t)
-                    break
+
+            local appearancePage = apTab.Page
+
+            -- Header
+            local apHeader = Instance.new("Frame", appearancePage)
+            apHeader.Size = UDim2.new(1, 0, 0, 44)
+            apHeader.BackgroundTransparency = 1
+            apHeader.LayoutOrder = 0
+            lbl(apHeader, { size = UDim2.new(1, 0, 0, 24), pos = UDim2.new(0, 0, 0, 0), text = "Appearance", fontType = "Bold", ts = 18, theme = "Text", z = 5 })
+            lbl(apHeader, { size = UDim2.new(1, 0, 0, 16), pos = UDim2.new(0, 0, 0, 26), text = "Customize the colors", fontType = "Medium", ts = 11, theme = "TextDim", z = 5 })
+
+            -- Color group segmented selector
+            local apSegFrame = Instance.new("Frame", appearancePage)
+            apSegFrame.Size = UDim2.new(1, 0, 0, 32)
+            apSegFrame.BorderSizePixel = 0
+            apSegFrame.LayoutOrder = 1
+            apSegFrame.ZIndex = 5
+            registerTheme(apSegFrame, "BackgroundColor3", "Panel")
+            corner(apSegFrame, 6)
+            local apSegStroke = Instance.new("UIStroke", apSegFrame)
+            apSegStroke.Thickness = 1
+            apSegStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            registerTheme(apSegStroke, "Color", "Border")
+
+            local apSegInner = Instance.new("Frame", apSegFrame)
+            apSegInner.Size = UDim2.new(1, -4, 1, -4)
+            apSegInner.Position = UDim2.new(0, 2, 0, 2)
+            apSegInner.BackgroundTransparency = 1
+            apSegInner.ZIndex = 6
+
+            local apSegLayout = Instance.new("UIListLayout", apSegInner)
+            apSegLayout.FillDirection = Enum.FillDirection.Horizontal
+            apSegLayout.Padding = UDim.new(0, 2)
+            apSegLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+
+            local activeGroup = "Accent"
+            local groupBtns   = {}
+            local apGroups = {
+                { Key = "Accent",     Label = "Accent" },
+                { Key = "Background", Label = "Background" },
+                { Key = "Panel",      Label = "Panels" },
+                { Key = "Text",       Label = "Text" },
+            }
+
+            local sliderRed, sliderGreen, sliderBlue
+            local hexLabel, previewSwatch
+
+            local function toHex(c)
+                return string.format("#%02X%02X%02X", math.floor(c.R*255), math.floor(c.G*255), math.floor(c.B*255))
+            end
+
+            local function updateSegBtns(key)
+                for k, b in pairs(groupBtns) do
+                    if k == key then
+                        b.BackgroundTransparency = 0
+                        b.BackgroundColor3 = Theme.Elevated
+                        twQ(b, 0.12, { TextColor3 = Theme.Text })
+                    else
+                        b.BackgroundTransparency = 1
+                        twQ(b, 0.12, { TextColor3 = Theme.TextDim })
+                    end
                 end
             end
+
+            local function updateSlidersFromGroup(key)
+                activeGroup = key
+                local c = Theme[key] or Color3.new(1, 1, 1)
+                local r, g, b = math.floor(c.R*255), math.floor(c.G*255), math.floor(c.B*255)
+                if sliderRed   then sliderRed.setValue(r)   end
+                if sliderGreen then sliderGreen.setValue(g) end
+                if sliderBlue  then sliderBlue.setValue(b)  end
+                if previewSwatch then previewSwatch.BackgroundColor3 = c end
+                if hexLabel then hexLabel.Text = toHex(c) end
+                updateSegBtns(key)
+            end
+
+            for _, g in ipairs(apGroups) do
+                local gb = Instance.new("TextButton", apSegInner)
+                gb.Size = UDim2.new(0.25, -2, 1, 0)
+                gb.BackgroundTransparency = 1
+                gb.BackgroundColor3 = Theme.Elevated
+                gb.BorderSizePixel = 0
+                gb.Text = g.Label
+                applyFont(gb, "Bold")
+                gb.TextSize = 13
+                gb.ZIndex = 7
+                registerTheme(gb, "TextColor3", "TextDim")
+                corner(gb, 4)
+                groupBtns[g.Key] = gb
+                gb.MouseButton1Click:Connect(function() updateSlidersFromGroup(g.Key) end)
+            end
+
+            -- Preview + hex row
+            local apPreviewRow = Instance.new("Frame", appearancePage)
+            apPreviewRow.Size = UDim2.new(1, 0, 0, 28)
+            apPreviewRow.BackgroundTransparency = 1
+            apPreviewRow.LayoutOrder = 2
+            apPreviewRow.ZIndex = 5
+
+            lbl(apPreviewRow, { size = UDim2.new(1, -100, 1, 0), pos = UDim2.new(0, 0, 0, 0), text = "colors", fontType = "Bold", ts = 9, theme = "TextDim", z = 5 })
+
+            previewSwatch = Instance.new("Frame", apPreviewRow)
+            previewSwatch.Size = UDim2.new(0, 18, 0, 18)
+            previewSwatch.Position = UDim2.new(1, -80, 0.5, -9)
+            previewSwatch.BorderSizePixel = 0
+            previewSwatch.ZIndex = 6
+            previewSwatch.BackgroundColor3 = Theme.Accent
+            corner(previewSwatch, 4)
+
+            hexLabel = lbl(apPreviewRow, { size = UDim2.new(0, 58, 1, 0), pos = UDim2.new(1, -58, 0, 0), text = toHex(Theme.Accent), fontType = "Medium", ts = 10, theme = "TextDim", ax = Enum.TextXAlignment.Right, z = 5 })
+
+            -- Sliders container
+            local apSlidersFrame = Instance.new("Frame", appearancePage)
+            apSlidersFrame.Size = UDim2.new(1, 0, 0, 130)
+            apSlidersFrame.BorderSizePixel = 0
+            apSlidersFrame.LayoutOrder = 3
+            apSlidersFrame.ZIndex = 5
+            registerTheme(apSlidersFrame, "BackgroundColor3", "Panel")
+            corner(apSlidersFrame, 6)
+            local apSF_stroke = Instance.new("UIStroke", apSlidersFrame)
+            apSF_stroke.Thickness = 1
+            apSF_stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            registerTheme(apSF_stroke, "Color", "Border")
+            local apSFPad = Instance.new("UIPadding", apSlidersFrame)
+            apSFPad.PaddingLeft = UDim.new(0, 14)
+            apSFPad.PaddingRight = UDim.new(0, 14)
+            apSFPad.PaddingTop = UDim.new(0, 8)
+            apSFPad.PaddingBottom = UDim.new(0, 8)
+
+            local function makeColorSlider(parent, labelText, posY, initVal, trackColor, onChange)
+                local row = Instance.new("Frame", parent)
+                row.Size = UDim2.new(1, 0, 0, 34)
+                row.Position = UDim2.new(0, 0, 0, posY)
+                row.BackgroundTransparency = 1
+                row.ZIndex = 6
+
+                lbl(row, { size = UDim2.new(0, 14, 0, 14), pos = UDim2.new(0, 0, 0, 0), text = labelText, fontType = "Bold", ts = 11, color = trackColor, z = 7 })
+                local valLbl = lbl(row, { size = UDim2.new(0, 28, 0, 14), pos = UDim2.new(1, -28, 0, 0), text = tostring(initVal), fontType = "Medium", ts = 10, theme = "TextDim", ax = Enum.TextXAlignment.Right, z = 7 })
+
+                local trackBg = Instance.new("TextButton", row)
+                trackBg.Size = UDim2.new(1, 0, 0, 6)
+                trackBg.Position = UDim2.new(0, 0, 0, 18)
+                trackBg.BorderSizePixel = 0
+                trackBg.Text = ""
+                trackBg.ZIndex = 7
+                registerTheme(trackBg, "BackgroundColor3", "Elevated")
+                corner(trackBg, 3)
+
+                local fill = Instance.new("Frame", trackBg)
+                fill.Size = UDim2.new(initVal/255, 0, 1, 0)
+                fill.BorderSizePixel = 0
+                fill.BackgroundColor3 = trackColor
+                fill.ZIndex = 8
+                corner(fill, 3)
+
+                local thumb = Instance.new("Frame", trackBg)
+                thumb.Size = UDim2.new(0, 11, 0, 11)
+                thumb.AnchorPoint = Vector2.new(0.5, 0.5)
+                thumb.Position = UDim2.new(initVal/255, 0, 0.5, 0)
+                thumb.BackgroundColor3 = Color3.fromRGB(225, 225, 235)
+                thumb.BorderSizePixel = 0
+                thumb.ZIndex = 9
+                corner(thumb, 6)
+
+                local sliding = false
+                local obj = { value = initVal }
+
+                local function update(px)
+                    local rel = math.clamp((px - trackBg.AbsolutePosition.X) / trackBg.AbsoluteSize.X, 0, 1)
+                    local v = math.floor(rel * 255)
+                    obj.value = v
+                    fill.Size = UDim2.new(rel, 0, 1, 0)
+                    thumb.Position = UDim2.new(rel, 0, 0.5, 0)
+                    valLbl.Text = tostring(v)
+                    onChange(v)
+                end
+                obj.setValue = function(v)
+                    obj.value = v
+                    local rel = math.clamp(v/255, 0, 1)
+                    fill.Size = UDim2.new(rel, 0, 1, 0)
+                    thumb.Position = UDim2.new(rel, 0, 0.5, 0)
+                    valLbl.Text = tostring(v)
+                end
+
+                Library:TrackConnection(trackBg.InputBegan:Connect(function(i)
+                    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                        sliding = true
+                        update(i.Position.X)
+                    end
+                end))
+
+                Library:TrackConnection(UserInputService.InputChanged:Connect(function(i)
+                    if sliding and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+                        update(i.Position.X)
+                    end
+                end))
+
+                Library:TrackConnection(UserInputService.InputEnded:Connect(function(i)
+                    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                        sliding = false
+                    end
+                end))
+
+                return obj
+            end
+
+            local function applyRGB()
+                local r = sliderRed   and sliderRed.value   or 0
+                local g = sliderGreen and sliderGreen.value or 0
+                local b = sliderBlue  and sliderBlue.value  or 0
+                local c = Color3.fromRGB(r, g, b)
+                updateTheme(activeGroup, c)
+                if previewSwatch then previewSwatch.BackgroundColor3 = c end
+                if hexLabel then hexLabel.Text = toHex(c) end
+                if activeGroup == "Accent" and miniIcon then miniIcon.BackgroundColor3 = c end
+            end
+
+            sliderRed   = makeColorSlider(apSlidersFrame, "R", 2,  math.floor(Theme.Accent.R*255), Color3.fromRGB(220, 70, 70),  function() applyRGB() end)
+            sliderGreen = makeColorSlider(apSlidersFrame, "G", 38, math.floor(Theme.Accent.G*255), Color3.fromRGB(50, 180, 110), function() applyRGB() end)
+            sliderBlue  = makeColorSlider(apSlidersFrame, "B", 74, math.floor(Theme.Accent.B*255), Color3.fromRGB(70, 130, 220), function() applyRGB() end)
+
+            -- Save button
+            local apSaveFrame = Instance.new("Frame", appearancePage)
+            apSaveFrame.Size = UDim2.new(1, 0, 0, 36)
+            apSaveFrame.BackgroundTransparency = 1
+            apSaveFrame.LayoutOrder = 4
+
+            local saveBtn = Instance.new("TextButton", apSaveFrame)
+            saveBtn.Size = UDim2.new(0, 126, 0, 32)
+            saveBtn.Position = UDim2.new(0.74, 0, 0.5, -16)
+            saveBtn.BorderSizePixel = 0
+            saveBtn.Text = "     Save Changes"
+            applyFont(saveBtn, "Bold")
+            saveBtn.TextSize = 15
+            saveBtn.ZIndex = 6
+            registerTheme(saveBtn, "BackgroundColor3", "Accent")
+            registerTheme(saveBtn, "TextColor3", "Text")
+            corner(saveBtn, 5)
+
+            local saveIcon = Instance.new("ImageLabel", saveBtn)
+            saveIcon.Size = UDim2.new(0, 14, 0, 14)
+            saveIcon.Position = UDim2.new(0, 10, 0.5, -7)
+            saveIcon.BackgroundTransparency = 1
+            saveIcon.Image = "rbxassetid://124051774666561"
+            saveIcon.ZIndex = 7
+            registerTheme(saveIcon, "ImageColor3", "Text")
+
+            saveBtn.MouseEnter:Connect(function() twQ(saveBtn, 0.12, { BackgroundColor3 = Color3.fromRGB(230, 95, 10) }) end)
+            saveBtn.MouseLeave:Connect(function() twQ(saveBtn, 0.12, { BackgroundColor3 = Theme.Accent }) end)
+            saveBtn.MouseButton1Down:Connect(function() twQ(saveBtn, 0.07, { BackgroundColor3 = Theme.AccentDim }) end)
+            saveBtn.MouseButton1Up:Connect(function() twQ(saveBtn, 0.12, { BackgroundColor3 = Theme.Accent }) end)
+            saveBtn.MouseButton1Click:Connect(function()
+                self:SaveConfig()
+                saveBtn.Text = "     Saved"
+                task.delay(1.2, function() saveBtn.Text = "  Save Changes" end)
+            end)
+
+            updateSlidersFromGroup("Accent")
         end
+
+        selectTab(WindowObj._settingsTabObj)
     end)
 
     local function syncIndicator(instant)
@@ -1167,7 +1657,7 @@ function Library:CreateWindow(options)
 
             local SectionObj = { Frame = secCard, ElementCount = 0 }
 
-            -- ── Section:AddToggle ───────────────────────────────────────
+            --  Section:AddToggle 
             function SectionObj:AddToggle(toggleOpts)
                 toggleOpts = toggleOpts or {}
                 local nameText = toggleOpts.Name or "Toggle"
@@ -1251,7 +1741,7 @@ function Library:CreateWindow(options)
                 return ToggleObj
             end
 
-            -- ── Section:AddSlider ───────────────────────────────────────
+            --  Section:AddSlider 
             function SectionObj:AddSlider(sliderOpts)
                 sliderOpts = sliderOpts or {}
                 local nameText = sliderOpts.Name or "Slider"
@@ -1392,7 +1882,7 @@ function Library:CreateWindow(options)
                 return SliderObj
             end
 
-            -- ── Section:AddDropdown ─────────────────────────────────────
+            --  Section:AddDropdown 
             function SectionObj:AddDropdown(dropOpts)
                 dropOpts = dropOpts or {}
                 local nameText = dropOpts.Name or "Dropdown"
@@ -1609,7 +2099,7 @@ function Library:CreateWindow(options)
                 return DropdownObj
             end
 
-            -- ── Section:AddTextBox ──────────────────────────────────────
+            --  Section:AddTextBox 
             function SectionObj:AddTextBox(boxOpts)
                 boxOpts = boxOpts or {}
                 local nameText     = boxOpts.Name or "Text Box"
@@ -1701,7 +2191,7 @@ function Library:CreateWindow(options)
                 return TextBoxObj
             end
 
-            -- ── Section:AddKeybind ──────────────────────────────────────
+            --  Section:AddKeybind 
             function SectionObj:AddKeybind(keyOpts)
                 keyOpts = keyOpts or {}
                 local nameText = keyOpts.Name or "Keybind"
@@ -1811,7 +2301,7 @@ function Library:CreateWindow(options)
                 return KeybindObj
             end
 
-            -- ── Section:AddColorPicker ──────────────────────────────────
+            --  Section:AddColorPicker 
             function SectionObj:AddColorPicker(cpOpts)
                 cpOpts = cpOpts or {}
                 local nameText  = cpOpts.Name or "Color Picker"
@@ -2002,7 +2492,7 @@ function Library:CreateWindow(options)
                 return ColorPickerObj
             end
 
-            -- ── Section:AddButton ───────────────────────────────────────
+            --  Section:AddButton 
             function SectionObj:AddButton(btnOpts)
                 btnOpts = btnOpts or {}
                 local nameText = btnOpts.Name or "Button"
@@ -2076,7 +2566,7 @@ function Library:CreateWindow(options)
                 return ButtonObj
             end
 
-            -- ── Static Display Elements ────────────────────────────────
+            --  Static Display Elements 
             function SectionObj:AddLabel(textStr)
                 SectionObj.ElementCount = SectionObj.ElementCount + 1
 
@@ -2165,160 +2655,7 @@ function Library:CreateWindow(options)
         return TabObj
     end
 
-    -- Minimize behavior
-    local miniIcon = Instance.new("ImageButton", screenGui)
-    miniIcon.Name                   = "MiniIcon"
-    miniIcon.Size                   = UDim2.new(0, 50, 0, 50)
-    miniIcon.Position               = UDim2.new(0.5, 0, 0.5, 0)
-    miniIcon.AnchorPoint            = Vector2.new(0.5, 0.5)
-    miniIcon.BorderSizePixel        = 0
-    miniIcon.Visible                = false
-    miniIcon.ZIndex                 = 200
-    miniIcon.ClipsDescendants       = true
-    registerTheme(miniIcon, "BackgroundColor3", "Surface")
-    corner(miniIcon, 25)
 
-    local miniSt = Instance.new("UIStroke", miniIcon)
-    miniSt.Thickness       = 3.5
-    miniSt.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    miniSt.Color           = Color3.fromRGB(255, 255, 255)
-
-    local miniGrad = Instance.new("UIGradient", miniSt)
-    miniGrad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0,   Color3.fromRGB(255, 90,  0)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 200, 0)),
-        ColorSequenceKeypoint.new(1,   Color3.fromRGB(255, 90,  0)),
-    })
-
-    Library:TrackConnection(RunService.RenderStepped:Connect(function()
-        if miniIcon and miniIcon.Parent and miniIcon.Visible then
-            miniGrad.Rotation = (tick() * 160) % 360
-        end
-    end))
-
-    local miniImg = Instance.new("ImageLabel", miniIcon)
-    miniImg.Size                   = UDim2.new(1, 0, 1, 0)
-    miniImg.BackgroundTransparency = 1
-    miniImg.Image                  = winIcon or "rbxassetid://77044087750639"
-    miniImg.ZIndex                 = 201
-    corner(miniImg, 25)
-
-    local isAnimating = false
-
-    local function restoreWindow()
-        if isAnimating then return end
-        isAnimating = true
-
-        mainFrame.Position = miniIcon.Position
-        mainFrame.Visible  = true
-
-        local tw1 = twQ(mainScale, 0.3, { Scale = 1.0 })
-        local tw2 = twQ(miniIcon,  0.3, { Rotation = 360 })
-
-        tw1.Completed:Once(function()
-            miniIcon.Visible  = false
-            miniIcon.Rotation = 0
-            isAnimating       = false
-        end)
-    end
-
-    makeDraggable(miniIcon, miniIcon, function()
-        restoreWindow()
-    end)
-
-    minimiseBtn.MouseButton1Click:Connect(function()
-        if isAnimating then return end
-        isAnimating = true
-
-        miniIcon.Position = mainFrame.Position
-        miniIcon.Rotation = -360
-        miniIcon.Visible  = true
-
-        local tw1 = twQ(mainScale, 0.3, { Scale = 0 })
-        local tw2 = twQ(miniIcon,  0.3, { Rotation = 0 })
-
-        tw1.Completed:Once(function()
-            mainFrame.Visible = false
-            mainScale.Scale   = 1.0
-            isAnimating       = false
-        end)
-    end)
-
-    -- Close Confirmation Dialog (Parented to overlayLayer with high ZIndex)
-    local CW_W, CW_H = 320, 150
-    local closeWin = Instance.new("Frame", overlayLayer)
-    closeWin.Name                   = "CloseConfirmation"
-    closeWin.Size                   = UDim2.new(0, CW_W, 0, CW_H)
-    closeWin.Position               = UDim2.new(0.5, -CW_W/2, 0.5, -CW_H/2)
-    closeWin.BorderSizePixel        = 0
-    closeWin.Visible                = false
-    closeWin.ZIndex                 = 5000
-    registerTheme(closeWin, "BackgroundColor3", "Background")
-    corner(closeWin, 8)
-    stroke(closeWin, 1, "Border")
-
-    label(closeWin, {
-        size = UDim2.new(1, -24, 0, 30),
-        pos = UDim2.new(0, 14, 0, 8),
-        text = "Close Window",
-        fontType = "Bold",
-        ts = 14,
-        theme = "Text",
-        z = 5001
-    })
-
-    label(closeWin, {
-        size = UDim2.new(1, -28, 0, 34),
-        pos = UDim2.new(0, 14, 0, 42),
-        text = "Are you sure you want to close this script window?",
-        fontType = "Medium",
-        ts = 11,
-        theme = "TextDim",
-        wrap = true,
-        z = 5001
-    })
-
-    local cwBtnRow = Instance.new("Frame", closeWin)
-    cwBtnRow.Size                   = UDim2.new(1, -28, 0, 32)
-    cwBtnRow.Position               = UDim2.new(0, 14, 1, -44)
-    cwBtnRow.BackgroundTransparency = 1
-    cwBtnRow.ZIndex                 = 5001
-
-    local cancelBtn = Instance.new("TextButton", cwBtnRow)
-    cancelBtn.Size                   = UDim2.new(0.47, 0, 1, 0)
-    cancelBtn.Position               = UDim2.new(0, 0, 0, 0)
-    cancelBtn.BorderSizePixel        = 0
-    cancelBtn.Text                   = "Cancel"
-    applyFont(cancelBtn, "Bold")
-    cancelBtn.TextSize               = 13
-    cancelBtn.ZIndex                 = 5002
-    registerTheme(cancelBtn, "BackgroundColor3", "Panel")
-    registerTheme(cancelBtn, "TextColor3", "TextMid")
-    corner(cancelBtn, 5)
-
-    cancelBtn.MouseButton1Click:Connect(function()
-        closeWin.Visible = false
-    end)
-
-    local confirmBtn = Instance.new("TextButton", cwBtnRow)
-    confirmBtn.Size                   = UDim2.new(0.47, 0, 1, 0)
-    confirmBtn.Position               = UDim2.new(0.53, 0, 0, 0)
-    confirmBtn.BorderSizePixel        = 0
-    confirmBtn.Text                   = "Close"
-    applyFont(confirmBtn, "Bold")
-    confirmBtn.TextSize               = 13
-    confirmBtn.ZIndex                 = 5002
-    registerTheme(confirmBtn, "BackgroundColor3", "Accent")
-    registerTheme(confirmBtn, "TextColor3", "Text")
-    corner(confirmBtn, 5)
-
-    confirmBtn.MouseButton1Click:Connect(function()
-        Library:Destroy()
-    end)
-
-    closeBtn.MouseButton1Click:Connect(function()
-        closeWin.Visible = true
-    end)
 
     -- Auto-load Config after window & elements creation
     task.defer(function()
@@ -2328,7 +2665,7 @@ function Library:CreateWindow(options)
     return WindowObj
 end
 
--- ── Destroy / Cleanup ────────────────────────────────────────────────
+--  Destroy / Cleanup 
 function Library:Destroy()
     if self.Unloaded then return end
     self.Unloaded = true

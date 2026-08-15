@@ -121,7 +121,7 @@ end
 
 local function loadFont(url, fileName, weight)
     pcall(function()
-        if not (writefile and isfile and getcustomasset and game.HttpGet) then return end
+        if not (writefile and isfile and getcustomasset) then return end
         if not isfile(fileName) then
             local d = game:HttpGet(url)
             if not d or #d < 500 then return end
@@ -172,7 +172,7 @@ end
 local bgAssetId = ""
 task.spawn(function()
     pcall(function()
-        if getcustomasset and writefile and game.HttpGet then
+        if getcustomasset and writefile then
             if not (isfile and isfile("MD_Hub_Bg.jpg")) then
                 local d = game:HttpGet("https://wallpapercave.com/wp/wp13409289.jpg")
                 if d and #d > 500 then writefile("MD_Hub_Bg.jpg", d) end
@@ -885,7 +885,7 @@ function Library:CreateWindow(options)
     miniImg.Size                   = UDim2.new(1, 0, 1, 0)
     miniImg.Position               = UDim2.new(0, 0, 0, 0)
     miniImg.BackgroundTransparency = 1
-    miniImg.Image                  = "rbxassetid://77044087750639"
+    miniImg.Image                  = "rbxassetid://86579518783109"
     miniImg.ZIndex                 = 201
     corner(miniImg, 25)
 
@@ -2413,9 +2413,12 @@ function Library:CreateWindow(options)
 
     local function buildAppearanceTab()
         if WindowObj._settingsTabObj then return end
-        WindowObj:AddSeparator()
-        WindowObj:AddSectionLabel("OTHER")
+        local sep = WindowObj:AddSeparator()
+        sep.LayoutOrder = 9997
+        local secLbl = WindowObj:AddSectionLabel("OTHER")
+        secLbl.LayoutOrder = 9998
         local apTab = WindowObj:AddTab({ Name = "Appearance", Icon = "rbxassetid://86579518783109" })
+        apTab.Btn.LayoutOrder = 9999
         WindowObj._settingsTabObj = apTab
 
         local appearancePage = apTab.Page

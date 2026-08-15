@@ -1,4 +1,4 @@
-print("t12312312312")
+
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -20,6 +20,16 @@ Library.Threads         = {}
 Library.Unloaded        = false
 Library.ConfigName      = nil
 Library.IsLoadingConfig = false
+
+Library.Icons = {
+    Gear     = "rbxassetid://137812568290912",
+    Minimise = "rbxassetid://80688800908127",
+    Home     = "rbxassetid://95747170083656",
+    Expand   = "rbxassetid://108376906768065",
+    Diamond  = "rbxassetid://118376432250064",
+    Cross    = "rbxassetid://110946743687809",
+    Game     = "rbxassetid://71655163787303",
+}
 
 getgenv().LIBRARY_CLEANUP = function()
     Library:Destroy()
@@ -102,6 +112,24 @@ end))
 local fontBold, fontMedium, fontSemi = nil, nil, nil
 local fontRegistry = {}
 
+local function trySyncLoad(fileName, weight)
+    pcall(function()
+        if isfile and isfile(fileName) and getcustomasset then
+            local id = getcustomasset(fileName)
+            if id and #id > 5 then
+                local f = Font.new(id, weight or Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+                if weight == Enum.FontWeight.Bold     then fontBold   = f end
+                if weight == Enum.FontWeight.Medium   then fontMedium = f end
+                if weight == Enum.FontWeight.SemiBold then fontSemi   = f end
+            end
+        end
+    end)
+end
+
+trySyncLoad("MDHub_Kanit_Bold.ttf",     Enum.FontWeight.Bold)
+trySyncLoad("MDHub_Kanit_Medium.ttf",   Enum.FontWeight.Medium)
+trySyncLoad("MDHub_Kanit_SemiBold.ttf", Enum.FontWeight.SemiBold)
+
 local function refreshAllFonts()
     for i = #fontRegistry, 1, -1 do
         local item = fontRegistry[i]
@@ -132,9 +160,9 @@ local function loadFont(url, fileName, weight)
         end
         local assetId = nil
         for _ = 1, 20 do
-            task.wait(0.1)
             local id = getcustomasset(fileName)
             if id and #id > 5 then assetId = id; break end
+            task.wait(0.1)
         end
         if not assetId then return end
         local f = Font.new(assetId, weight or Enum.FontWeight.Bold, Enum.FontStyle.Normal)
@@ -145,15 +173,9 @@ local function loadFont(url, fileName, weight)
     end)
 end
 
-task.spawn(function()
-    loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-Bold.ttf",     "MDHub_Kanit_Bold.ttf",     Enum.FontWeight.Bold)
-end)
-task.spawn(function()
-    loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-Medium.ttf",   "MDHub_Kanit_Medium.ttf",   Enum.FontWeight.Medium)
-end)
-task.spawn(function()
-    loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-SemiBold.ttf", "MDHub_Kanit_SemiBold.ttf", Enum.FontWeight.SemiBold)
-end)
+task.spawn(function() loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-Bold.ttf",     "MDHub_Kanit_Bold.ttf",     Enum.FontWeight.Bold) end)
+task.spawn(function() loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-Medium.ttf",   "MDHub_Kanit_Medium.ttf",   Enum.FontWeight.Medium) end)
+task.spawn(function() loadFont("https://raw.githubusercontent.com/cadsondemak/kanit/master/fonts/ttf/Kanit-SemiBold.ttf", "MDHub_Kanit_SemiBold.ttf", Enum.FontWeight.SemiBold) end)
 
 local function applyFont(inst, fType)
     table.insert(fontRegistry, { Inst = inst, Type = fType })
@@ -701,7 +723,7 @@ function Library:CreateWindow(options)
     resizeBtn.Size                   = UDim2.new(0, 22, 0, 22)
     resizeBtn.Position               = UDim2.new(1, -24, 1, -24)
     resizeBtn.BackgroundTransparency   = 1
-    resizeBtn.Image                  = "rbxassetid://108376906768065"
+    resizeBtn.Image                  = Library.Icons.Expand
     resizeBtn.ZIndex                 = 100
     registerTheme(resizeBtn, "ImageColor3", "TextDim")
 
@@ -851,9 +873,9 @@ function Library:CreateWindow(options)
         return btn
     end
 
-    local settingsBtn = makeIconBtn("rbxassetid://86579518783109", 20)
-    local minimiseBtn = makeIconBtn("rbxassetid://80688800908127", 20)
-    local closeBtn    = makeIconBtn("rbxassetid://110946743687809", 17)
+    local settingsBtn = makeIconBtn(Library.Icons.Gear, 20)
+    local minimiseBtn = makeIconBtn(Library.Icons.Minimise, 20)
+    local closeBtn    = makeIconBtn(Library.Icons.Cross, 17)
 
     --  Minimized Floating Circle Icon 
     local miniIcon = Instance.new("ImageButton", screenGui)
@@ -892,7 +914,7 @@ function Library:CreateWindow(options)
     miniImg.Size                   = UDim2.new(1, 0, 1, 0)
     miniImg.Position               = UDim2.new(0, 0, 0, 0)
     miniImg.BackgroundTransparency = 1
-    miniImg.Image                  = "rbxassetid://86579518783109"
+    miniImg.Image                  = Library.Icons.Gear
     miniImg.ZIndex                 = 201
     corner(miniImg, 25)
 
@@ -2424,7 +2446,7 @@ function Library:CreateWindow(options)
         sep.LayoutOrder = 9997
         local secLbl = WindowObj:AddSectionLabel("OTHER")
         secLbl.LayoutOrder = 9998
-        local apTab = WindowObj:AddTab({ Name = "Appearance", Icon = "rbxassetid://86579518783109" })
+        local apTab = WindowObj:AddTab({ Name = "Appearance", Icon = Library.Icons.Gear })
         apTab.Btn.LayoutOrder = 9999
         WindowObj._settingsTabObj = apTab
 

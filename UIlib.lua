@@ -1,4 +1,4 @@
-print("tttggggggdfh")
+
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -14,12 +14,39 @@ end
 
 local Library = {}
 Library.Flags           = {}
+Library.Options         = {}
 Library.Elements        = {}
 Library.Connections     = {}
 Library.Threads         = {}
 Library.Unloaded        = false
 Library.ConfigName      = nil
 Library.IsLoadingConfig = false
+Library.MinimizeKey     = Enum.KeyCode.LeftControl
+Library.DialogOpen      = false
+
+function Library:SafeCallback(func, ...)
+    if not func then return end
+    local success, result = pcall(func, ...)
+    if not success then
+        warn("[MDuiLib] Error in callback: " .. tostring(result))
+        pcall(function()
+            Library:Notify({
+                Title = "Callback Error",
+                Content = tostring(result),
+                Duration = 5
+            })
+        end)
+    end
+    return success, result
+end
+
+function Library:Round(number, factor)
+    if not factor or factor == 0 then
+        return math.floor(number + 0.5)
+    end
+    local mult = 10 ^ factor
+    return math.floor(number * mult + 0.5) / mult
+end
 
 Library.Icons = {
     Gear     = "rbxassetid://137812568290912",
@@ -667,6 +694,93 @@ function Library:Notify(options)
     end)
 end
 
+--  Dialog System (Modal Popups)
+function Library:Dialog(options)
+    options = options or {}
+    local titleText   = options.Title or "Dialog"
+    local contentText = options.Content or ""
+    local buttons     = options.Buttons or {}
+
+    local CW_W, CW_H = 340, 160
+
+    local backdrop = Instance.new("TextButton", overlayLayer)
+    backdrop.Name                   = "MD_DialogBackdrop"
+    backdrop.Size                   = UDim2.new(1, 0, 1, 0)
+    backdrop.BackgroundTransparency = 1
+    backdrop.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
+    backdrop.BorderSizePixel        = 0
+    backdrop.Text                   = ""
+    backdrop.ZIndex                 = 4999
+
+    local dialogWin = Instance.new("Frame", overlayLayer)
+    dialogWin.Name             = "MD_DialogWindow"
+    dialogWin.Size             = UDim2.new(0, CW_W, 0, CW_H)
+    dialogWin.Position         = UDim2.new(0.5, -CW_W/2, 0.5, -CW_H/2)
+    dialogWin.BorderSizePixel  = 0
+    dialogWin.Active           = true
+    dialogWin.ZIndex           = 5000
+    registerTheme(dialogWin, "BackgroundColor3", "Background")
+    corner(dialogWin, 8)
+    stroke(dialogWin, 1, "Border")
+
+    Library.DialogOpen = true
+    twQ(backdrop, 0.2, { BackgroundTransparency = 0.5 })
+    dialogWin.Size     = UDim2.new(0, CW_W, 0, 0)
+    dialogWin.Position = UDim2.new(0.5, -CW_W/2, 0.5, 0)
+    twB(dialogWin, 0.3, { Size = UDim2.new(0, CW_W, 0, CW_H), Position = UDim2.new(0.5, -CW_W/2, 0.5, -CW_H/2) })
+
+    local function closeDialog()
+        Library.DialogOpen = false
+        twQ(backdrop, 0.2, { BackgroundTransparency = 1 })
+        twQ(dialogWin, 0.2, { Size = UDim2.new(0, CW_W, 0, 0), Position = UDim2.new(0.5, -CW_W/2, 0.5, 0) })
+        task.delay(0.22, function()
+            dialogWin:Destroy()
+            backdrop:Destroy()
+        end)
+    end
+
+    local dHead = Instance.new("Frame", dialogWin)
+    dHead.Size = UDim2.new(1, 0, 0, 36)
+    dHead.BackgroundTransparency = 1
+    dHead.BorderSizePixel = 0
+    dHead.ZIndex = 5001
+    label(dHead, { size = UDim2.new(1, -24, 1, 0), pos = UDim2.new(0, 14, 0, 0), text = titleText, fontType = "Bold", ts = 13, theme = "Text", z = 5002 })
+    makeDraggable(dialogWin, dHead)
+
+    label(dialogWin, { size = UDim2.new(1, -28, 0, 38), pos = UDim2.new(0, 14, 0, 40), text = contentText, fontType = "Medium", ts = 11, theme = "TextDim", wrap = true, z = 5002 })
+
+    local btnRow = Instance.new("Frame", dialogWin)
+    btnRow.Size                   = UDim2.new(1, -28, 0, 32)
+    btnRow.Position               = UDim2.new(0, 14, 1, -44)
+    btnRow.BackgroundTransparency = 1
+    btnRow.ZIndex                 = 5002
+
+    local btnCount = #buttons > 0 and #buttons or 1
+    for idx, btnData in ipairs(buttons) do
+        local btnTitle = btnData.Title or "Button"
+        local btnCb    = btnData.Callback or function() end
+        local btnObj   = Instance.new("TextButton", btnRow)
+        local widthFrac = 1 / btnCount
+        btnObj.Size                   = UDim2.new(widthFrac, -((btnCount - 1) * 6 / btnCount), 1, 0)
+        btnObj.Position               = UDim2.new((idx - 1) * widthFrac, (idx - 1) * 6 / btnCount, 0, 0)
+        btnObj.BorderSizePixel        = 0
+        btnObj.Text                   = btnTitle
+        applyFont(btnObj, "Bold")
+        btnObj.TextSize               = 14
+        btnObj.ZIndex                 = 5003
+        registerTheme(btnObj, "BackgroundColor3", idx == btnCount and "Accent" or "Panel")
+        registerTheme(btnObj, "TextColor3", idx == btnCount and "Text" or "TextMid")
+        corner(btnObj, 5)
+
+        btnObj.MouseButton1Click:Connect(function()
+            Library:SafeCallback(btnCb)
+            closeDialog()
+        end)
+    end
+
+    return { Close = closeDialog }
+end
+
 --  Window Creation 
 function Library:CreateWindow(options)
     options = options or {}
@@ -676,6 +790,9 @@ function Library:CreateWindow(options)
     local winSize     = options.Size or Vector2.new(660, 420)
 
     self.ConfigName = options.ConfigName
+    if options.MinimizeKey then
+        self.MinimizeKey = options.MinimizeKey
+    end
 
     if options.Theme then
         self:SetTheme(options.Theme)
@@ -683,7 +800,7 @@ function Library:CreateWindow(options)
 
     local MAIN_W, MAIN_H = winSize.X, winSize.Y
     local TOPBAR_H       = 65
-    local SIDEBAR_W      = 150
+    local SIDEBAR_W      = options.TabWidth or 150
 
     local mainFrame = Instance.new("Frame", screenGui)
     mainFrame.Name             = "MainFrame"
@@ -800,7 +917,7 @@ function Library:CreateWindow(options)
     local mdIconImg = Instance.new("ImageLabel", brandRow)
     mdIconImg.Size                   = UDim2.new(0, 30, 0, 30)
     mdIconImg.BackgroundTransparency = 1
-    mdIconImg.Image                  = winIcon or "rbxthumb://type=Asset&id=77044087750639&w=150&h=150"
+    mdIconImg.Image                  = winIcon or "rbxthumb://type=Asset&id=140295322336049&w=150&h=150"
     mdIconImg.LayoutOrder            = 1
     mdIconImg.ZIndex                 = 7
     corner(mdIconImg, 7)
@@ -972,6 +1089,45 @@ function Library:CreateWindow(options)
             isAnimating       = false
         end)
     end)
+
+    --  MinimizeKey Keyboard Shortcut (Fluent-style toggle minimize)
+    Library:TrackConnection(UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if Library.MinimizeKey and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Library.MinimizeKey then
+            if isAnimating then return end
+            if mainFrame.Visible then
+                -- Minimize
+                isAnimating = true
+                miniIcon.Position = mainFrame.Position
+                miniIconScale.Scale = 0
+                miniIcon.Rotation = -360
+                miniIcon.Visible = true
+                local twMS = twQ(mainScale, 0.3, { Scale = 0 })
+                twQ(miniIconScale, 0.3, { Scale = 1.0 })
+                twQ(miniIcon, 0.3, { Rotation = 0 })
+                twMS.Completed:Once(function()
+                    mainFrame.Visible = false
+                    mainScale.Scale   = 1.0
+                    isAnimating       = false
+                end)
+            else
+                -- Restore
+                isAnimating = true
+                mainFrame.Position = miniIcon.Position
+                mainScale.Scale    = 0
+                mainFrame.Visible  = true
+                local twMS = twQ(mainScale, 0.3, { Scale = 1.0 })
+                twQ(miniIconScale, 0.3, { Scale = 0 })
+                twQ(miniIcon, 0.3, { Rotation = 360 })
+                twMS.Completed:Once(function()
+                    miniIcon.Visible    = false
+                    miniIconScale.Scale = 1.0
+                    miniIcon.Rotation   = 0
+                    isAnimating         = false
+                end)
+            end
+        end
+    end))
 
     --  Close Confirmation Modal 
     local CW_W, CW_H = 320, 152
@@ -1426,7 +1582,12 @@ function Library:CreateWindow(options)
                 rowBtn.Text                   = ""
                 rowBtn.ZIndex                 = 6
 
-                label(rowBtn, {
+                local state = default
+                if flag then
+                    Library.Flags[flag] = state
+                end
+
+                local titleLbl = label(rowBtn, {
                     size = UDim2.new(1, -60, 1, 0),
                     pos = UDim2.new(0, 0, 0, 0),
                     text = nameText,
@@ -1441,28 +1602,23 @@ function Library:CreateWindow(options)
                 end
 
                 local track = Instance.new("Frame", rowBtn)
-                track.Size                   = UDim2.new(0, 36, 0, 18)
-                track.Position               = UDim2.new(1, -36, 0.5, -9)
+                track.Size                   = UDim2.new(0, 40, 0, 20)
+                track.Position               = UDim2.new(1, -48, 0.5, -10)
                 track.BorderSizePixel        = 0
                 track.ZIndex                 = 6
                 registerTheme(track, "BackgroundColor3", default and "Accent" or "Elevated")
-                corner(track, 9)
+                corner(track, 10)
 
                 local thumb = Instance.new("Frame", track)
                 thumb.Size                   = UDim2.new(0, 14, 0, 14)
                 thumb.AnchorPoint            = Vector2.new(0.5, 0.5)
-                thumb.Position               = default and UDim2.new(1, -9, 0.5, 0) or UDim2.new(0, 9, 0.5, 0)
+                thumb.Position               = default and UDim2.new(1, -10, 0.5, 0) or UDim2.new(0, 10, 0.5, 0)
                 thumb.BorderSizePixel        = 0
                 thumb.ZIndex                 = 7
                 registerTheme(thumb, "BackgroundColor3", "Text")
                 corner(thumb, 7)
 
-                local state = default
-                if flag then
-                    Library.Flags[flag] = state
-                end
-
-                local ToggleObj = { Flag = flag, Default = default }
+                local ToggleObj = { Flag = flag, Default = default, Type = "Toggle" }
 
                 function ToggleObj:Set(val, skipCallback)
                     state = not not val
@@ -1470,23 +1626,31 @@ function Library:CreateWindow(options)
                     twQ(track, 0.15, { BackgroundColor3 = state and Theme.Accent or Theme.Elevated })
                     twQ(thumb, 0.15, { Position = state and UDim2.new(1, -9, 0.5, 0) or UDim2.new(0, 9, 0.5, 0) })
                     if not skipCallback and not Library.IsLoadingConfig then
-                        pcall(callback, state)
+                        Library:SafeCallback(callback, state)
+                        if ToggleObj.Changed then Library:SafeCallback(ToggleObj.Changed, state) end
                     end
                     Library:SaveConfig()
                 end
 
-                function ToggleObj:Get()
-                    return state
+                function ToggleObj:SetValue(val) ToggleObj:Set(val) end
+                function ToggleObj:Get() return state end
+                function ToggleObj:GetValue() return state end
+                function ToggleObj:OnChanged(cb)
+                    ToggleObj.Changed = cb
+                    cb(state)
                 end
+                function ToggleObj:SetTitle(t) titleLbl.Text = t end
 
                 function ToggleObj:Destroy()
                     rowBtn:Destroy()
+                    if flag then Library.Options[flag] = nil end
                 end
 
                 rowBtn.MouseButton1Click:Connect(function()
                     ToggleObj:Set(not state)
                 end)
 
+                if flag then Library.Options[flag] = ToggleObj end
                 table.insert(Library.Elements, ToggleObj)
                 return ToggleObj
             end
@@ -1565,7 +1729,7 @@ function Library:CreateWindow(options)
                 local currVal = default
                 if flag then Library.Flags[flag] = currVal end
 
-                local SliderObj = { Flag = flag, Default = default }
+                local SliderObj = { Flag = flag, Default = default, Type = "Slider" }
 
                 local function updateSlider(px, skipCallback)
                     local rel = math.clamp((px - trackBg.AbsolutePosition.X) / trackBg.AbsoluteSize.X, 0, 1)
@@ -1582,7 +1746,8 @@ function Library:CreateWindow(options)
                     valLbl.Text = tostring(currVal) .. suffix
 
                     if not skipCallback and not Library.IsLoadingConfig then
-                        pcall(callback, currVal)
+                        Library:SafeCallback(callback, currVal)
+                        if SliderObj.Changed then Library:SafeCallback(SliderObj.Changed, currVal) end
                     end
                 end
 
@@ -1597,17 +1762,23 @@ function Library:CreateWindow(options)
                     valLbl.Text = tostring(currVal) .. suffix
 
                     if not skipCallback and not Library.IsLoadingConfig then
-                        pcall(callback, currVal)
+                        Library:SafeCallback(callback, currVal)
+                        if SliderObj.Changed then Library:SafeCallback(SliderObj.Changed, currVal) end
                     end
                     Library:SaveConfig()
                 end
 
-                function SliderObj:Get()
-                    return currVal
+                function SliderObj:SetValue(val) SliderObj:Set(val) end
+                function SliderObj:Get() return currVal end
+                function SliderObj:GetValue() return currVal end
+                function SliderObj:OnChanged(cb)
+                    SliderObj.Changed = cb
+                    cb(currVal)
                 end
 
                 function SliderObj:Destroy()
                     container:Destroy()
+                    if flag then Library.Options[flag] = nil end
                 end
 
                 local sliding = false
@@ -1633,6 +1804,7 @@ function Library:CreateWindow(options)
                     end
                 end))
 
+                if flag then Library.Options[flag] = SliderObj end
                 table.insert(Library.Elements, SliderObj)
                 return SliderObj
             end
@@ -1706,7 +1878,7 @@ function Library:CreateWindow(options)
 
                 if flag then Library.Flags[flag] = selectedVal end
 
-                local DropdownObj = { Flag = flag, Default = default }
+                local DropdownObj = { Flag = flag, Default = default, Type = "Dropdown" }
 
                 local function formatSelected()
                     if isMulti then
@@ -1752,18 +1924,39 @@ function Library:CreateWindow(options)
                     end
 
                     if not skipCallback and not Library.IsLoadingConfig then
-                        pcall(callback, selectedVal)
+                        Library:SafeCallback(callback, selectedVal)
+                        if DropdownObj.Changed then Library:SafeCallback(DropdownObj.Changed, selectedVal) end
                     end
                     Library:SaveConfig()
                 end
 
-                function DropdownObj:Get()
-                    return selectedVal
+                function DropdownObj:SetOptions(newOptions)
+                    options = newOptions or {}
+                    if not isMulti then
+                        if not table.find(options, selectedVal) then
+                            selectedVal = options[1] or ""
+                        end
+                    end
+                    selectedTextLbl.Text = formatSelected()
+                    if popupOpen then closeMenu() end
+                end
+
+                function DropdownObj:SetValues(newOptions)
+                    DropdownObj:SetOptions(newOptions)
+                end
+
+                function DropdownObj:SetValue(val) DropdownObj:Set(val) end
+                function DropdownObj:Get() return selectedVal end
+                function DropdownObj:GetValue() return selectedVal end
+                function DropdownObj:OnChanged(cb)
+                    DropdownObj.Changed = cb
+                    cb(selectedVal)
                 end
 
                 function DropdownObj:Destroy()
                     closeMenu()
                     container:Destroy()
+                    if flag then Library.Options[flag] = nil end
                 end
 
                 dropBtn.MouseButton1Click:Connect(function()
@@ -1859,6 +2052,7 @@ function Library:CreateWindow(options)
                     end
                 end)
 
+                if flag then Library.Options[flag] = DropdownObj end
                 table.insert(Library.Elements, DropdownObj)
                 return DropdownObj
             end
@@ -1924,24 +2118,30 @@ function Library:CreateWindow(options)
                     if flag then Library.Flags[flag] = currText end
                 end)
 
-                local TextBoxObj = { Flag = flag, Default = default }
+                local TextBoxObj = { Flag = flag, Default = default, Type = "Input" }
 
                 function TextBoxObj:Set(val, skipCallback)
                     currText = tostring(val or "")
                     box.Text = currText
                     if flag then Library.Flags[flag] = currText end
                     if not skipCallback and not Library.IsLoadingConfig then
-                        pcall(callback, currText)
+                        Library:SafeCallback(callback, currText)
+                        if TextBoxObj.Changed then Library:SafeCallback(TextBoxObj.Changed, currText) end
                     end
                     Library:SaveConfig()
                 end
 
-                function TextBoxObj:Get()
-                    return currText
+                function TextBoxObj:SetValue(val) TextBoxObj:Set(val) end
+                function TextBoxObj:Get() return currText end
+                function TextBoxObj:GetValue() return currText end
+                function TextBoxObj:OnChanged(cb)
+                    TextBoxObj.Changed = cb
+                    cb(currText)
                 end
 
                 function TextBoxObj:Destroy()
                     container:Destroy()
+                    if flag then Library.Options[flag] = nil end
                 end
 
                 box.FocusLost:Connect(function(enterPressed)
@@ -1956,6 +2156,7 @@ function Library:CreateWindow(options)
                     TextBoxObj:Set(text)
                 end)
 
+                if flag then Library.Options[flag] = TextBoxObj end
                 table.insert(Library.Elements, TextBoxObj)
                 return TextBoxObj
             end
@@ -2014,36 +2215,82 @@ function Library:CreateWindow(options)
 
                 if flag then Library.Flags[flag] = currKey end
 
-                local KeybindObj = { Flag = flag, Default = default }
+                local KeybindObj = { Flag = flag, Default = default, Type = "Keybind" }
+
+                function KeybindObj:GetState()
+                    if UserInputService:GetFocusedTextBox() and mode ~= "Always" then
+                        return false
+                    end
+                    if mode == "Always" then
+                        return true
+                    elseif mode == "Hold" then
+                        if typeof(currKey) == "EnumItem" then
+                            return UserInputService:IsKeyDown(currKey)
+                        end
+                        return false
+                    else
+                        return isToggled
+                    end
+                end
 
                 local beganConn = UserInputService.InputBegan:Connect(function(input, gpe)
                     if isListening then
+                        local key
                         if input.UserInputType == Enum.UserInputType.Keyboard then
-                            if input.KeyCode == Enum.KeyCode.Escape then
+                            key = input.KeyCode
+                        elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+                            key = "MouseLeft"
+                        elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+                            key = "MouseRight"
+                        end
+                        if key then
+                            if key == Enum.KeyCode.Escape then
                                 isListening = false
                                 bindLbl.Text = typeof(currKey) == "EnumItem" and currKey.Name or tostring(currKey)
                             else
                                 isListening = false
-                                KeybindObj:Set(input.KeyCode)
+                                KeybindObj:Set(key)
                             end
                         end
                         return
                     end
 
-                    if not gpe and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == currKey then
-                        if mode == "Toggle" then
-                            isToggled = not isToggled
-                            pcall(callback, isToggled)
-                        elseif mode == "Hold" then
-                            pcall(callback, true)
+                    if not gpe and not UserInputService:GetFocusedTextBox() then
+                        local isMatch = false
+                        if typeof(currKey) == "EnumItem" and input.UserInputType == Enum.UserInputType.Keyboard then
+                            isMatch = input.KeyCode == currKey
+                        elseif currKey == "MouseLeft" and input.UserInputType == Enum.UserInputType.MouseButton1 then
+                            isMatch = true
+                        elseif currKey == "MouseRight" and input.UserInputType == Enum.UserInputType.MouseButton2 then
+                            isMatch = true
+                        end
+
+                        if isMatch then
+                            if mode == "Toggle" then
+                                isToggled = not isToggled
+                                Library:SafeCallback(callback, isToggled)
+                                if KeybindObj.Clicked then Library:SafeCallback(KeybindObj.Clicked, isToggled) end
+                            elseif mode == "Hold" then
+                                Library:SafeCallback(callback, true)
+                            end
                         end
                     end
                 end)
                 Library:TrackConnection(beganConn)
 
                 local endedConn = UserInputService.InputEnded:Connect(function(input, gpe)
-                    if not gpe and mode == "Hold" and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == currKey then
-                        pcall(callback, false)
+                    if mode == "Hold" then
+                        local isMatch = false
+                        if typeof(currKey) == "EnumItem" and input.UserInputType == Enum.UserInputType.Keyboard then
+                            isMatch = input.KeyCode == currKey
+                        elseif currKey == "MouseLeft" and input.UserInputType == Enum.UserInputType.MouseButton1 then
+                            isMatch = true
+                        elseif currKey == "MouseRight" and input.UserInputType == Enum.UserInputType.MouseButton2 then
+                            isMatch = true
+                        end
+                        if isMatch then
+                            Library:SafeCallback(callback, false)
+                        end
                     end
                 end)
                 Library:TrackConnection(endedConn)
@@ -2052,24 +2299,43 @@ function Library:CreateWindow(options)
                     currKey = key
                     bindLbl.Text = typeof(currKey) == "EnumItem" and currKey.Name or tostring(currKey)
                     if flag then Library.Flags[flag] = currKey end
+                    if not skipCallback then
+                        if KeybindObj.ChangedCallback then Library:SafeCallback(KeybindObj.ChangedCallback, currKey) end
+                    end
                     Library:SaveConfig()
                 end
 
-                function KeybindObj:Get()
-                    return currKey
+                function KeybindObj:SetValue(key, newMode)
+                    if newMode then mode = newMode end
+                    KeybindObj:Set(key)
+                end
+                function KeybindObj:Get() return currKey end
+                function KeybindObj:GetValue() return currKey end
+                function KeybindObj:OnChanged(cb)
+                    KeybindObj.ChangedCallback = cb
+                    cb(currKey)
+                end
+                function KeybindObj:OnClick(cb)
+                    KeybindObj.Clicked = cb
+                end
+                function KeybindObj:DoClick()
+                    Library:SafeCallback(callback, isToggled)
+                    if KeybindObj.Clicked then Library:SafeCallback(KeybindObj.Clicked, isToggled) end
                 end
 
                 function KeybindObj:Destroy()
                     pcall(function() beganConn:Disconnect() end)
                     pcall(function() endedConn:Disconnect() end)
                     container:Destroy()
+                    if flag then Library.Options[flag] = nil end
                 end
 
                 bindBtn.MouseButton1Click:Connect(function()
                     isListening = true
-                    bindLbl.Text = "Press key..."
+                    bindLbl.Text = "..."
                 end)
 
+                if flag then Library.Options[flag] = KeybindObj end
                 table.insert(Library.Elements, KeybindObj)
                 return KeybindObj
             end
@@ -2496,6 +2762,9 @@ function Library:CreateWindow(options)
                 return ParagraphObj
             end
 
+            -- Alias: Fluent uses AddInput, we use AddTextBox
+            SectionObj.AddInput = SectionObj.AddTextBox
+
             return SectionObj
         end
 
@@ -2806,8 +3075,13 @@ function Library:Destroy()
     end
 
     self.Flags    = {}
+    self.Options  = {}
     self.Elements = {}
     fontRegistry  = {}
+end
+
+if getgenv then
+    getgenv().MDuiLib = Library
 end
 
 return Library

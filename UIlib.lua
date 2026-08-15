@@ -800,7 +800,7 @@ function Library:CreateWindow(options)
     local mdIconImg = Instance.new("ImageLabel", brandRow)
     mdIconImg.Size                   = UDim2.new(0, 30, 0, 30)
     mdIconImg.BackgroundTransparency = 1
-    mdIconImg.Image                  = winIcon or "rbxthumb://type=Asset&id=140295322336049&w=150&h=150"
+    mdIconImg.Image                  = winIcon or "rbxthumb://type=Asset&id=77044087750639&w=150&h=150"
     mdIconImg.LayoutOrder            = 1
     mdIconImg.ZIndex                 = 7
     corner(mdIconImg, 7)
